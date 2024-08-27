@@ -1,3 +1,22 @@
+# test_that('load Rcpp Module', {
+#   ref_file = "ExampleData_TL-PRS/ExampleData_1000G_African_train"
+
+#   # bedFileReader <- Rcpp::Module("BedFileReader_module", PACKAGE = "PTL.PRS")
+#   # BedFileReader = loadModule(module = "BedFileReader_module", TRUE)
+
+#   # setClass("BedFileReader", representation( pointer = "externalptr" ) )
+#   # BedFileReader_method <- function(name) {paste( "BedFileReader", name, sep = "__" ) }
+#   # setMethod( "$", "BedFileReader", function(x, name ) {function(...) .Call(BedFileReader_method(name),x@pointer, ... )})
+#   # setMethod("initialize","BedFileReader", function(.Object, ...) {
+#   #   .Object@pointer <-.Call(BedFileReader_method("new"), ... )
+#   #   .Object})
+
+#   bedFileReader <- new(BedFileReader, paste0(ref_file,".fam"), paste0(ref_file,".bim"), paste0(ref_file,".bed"))
+#   result = try(bedFileReader$snp_index_func(), silent=TRUE)
+#   Gtemp = readSomeSnp(c('rs10045497','rs10401969'), BedFileReader = bedFileReader) #ref
+#   print(head(Gtemp))
+# })
+
 test_that('run_PTLPRS', {
 random_seed=42
 
@@ -17,6 +36,7 @@ iter = 5
 
 ps=TRUE
 subprop=0.8235 #0.7:0.15
+pseudo_test = FALSE
 
 patience = 3 #default = 3
 trace=TRUE
@@ -24,6 +44,6 @@ trace=TRUE
 target_sumstats_train_file = NULL #paste0('data/T2D_',comp,'_WB.summaries')
 target_sumstats_val_file = NULL #paste0('data/mapp_modified/t2d_',comp,'_val_',random_seed,'.summaries')
 
-out.beta=PTL_PRS_bwes(ref_file,sum_stats_file,target_sumstats_file, subprop, ref_file_ps, LDblocks,outfile,num_cores, target_sumstats_train_file, target_sumstats_val_file, ps,random_seed, lr_list, iter, early_stopping, patience, trace)
+out.beta=PTL_PRS_bwes(ref_file,sum_stats_file,target_sumstats_file, subprop, ref_file_ps, LDblocks,outfile,num_cores, target_sumstats_train_file, target_sumstats_val_file, ps,pseudo_test, random_seed, lr_list, iter, patience, trace)
 })
 

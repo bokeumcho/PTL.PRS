@@ -18,8 +18,8 @@ using namespace Rcpp;
 /// @param bimName 
 /// @param bedName  
 
-BedFileReader::BedFileReader() : famName_temp(""), bimName_temp(""), bedName_temp(""), m_line_counter(0), m_num_of_snps(0), m_size_of_esi(0) {
-}
+// BedFileReader::BedFileReader() : famName_temp(""), bimName_temp(""), bedName_temp(""), m_line_counter(0), m_num_of_snps(0), m_size_of_esi(0) {
+// }
 
 BedFileReader::BedFileReader(string famName, string bimName, string bedName)
     : famName_temp(famName), bimName_temp(bimName), bedName_temp(bedName) { 
@@ -636,7 +636,7 @@ void BedFileReader::close_bed(){
 
 RCPP_MODULE(BedFileReader_module) {
     class_<BedFileReader>("BedFileReader")
-        .constructor()
+        .constructor<std::string, std::string, std::string>()
         .method("snp_index_func", &BedFileReader::snp_index_func, "Mapping a SNP name to its index in bim")
         .method("findSnpIndex", &BedFileReader::findSnpIndex, "Find index of a single SNP")
         .method("readOneSnp", &BedFileReader::readOneSnp, "Read a single SNP based on index");

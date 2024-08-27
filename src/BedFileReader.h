@@ -16,7 +16,7 @@ class BedFileReader{
     public:
     /* ---------- Constructor ----------*/
     // Default constructor
-    BedFileReader();
+    // BedFileReader();
     // Parameterized constructor
     BedFileReader(string famName, string bimName, string bedName);
 

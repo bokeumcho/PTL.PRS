@@ -1,10 +1,11 @@
-#' @useDynLib PTL.PRS
-NULL
+#' @useDynLib PTL.PRS, .registration = TRUE
+#' @import methods Rcpp
+"_PACKAGE"
 
-updateCoeff <- function(beta.all, GG2, geno_ref, learningrate, maxiter, betaSD, sum_stats_target_val_block, trace){
+updateCoeff <- function(beta.all, GG2, geno_ref, learningrate, maxiter, betaSD, sum_stats_target_val_block, patience, trace){
   #' Update betas in each LD block for each learning rate, using block-wise early stopping
   #' 
-  #' @param beta.all A list of two elements: betas to update for each LD block (betatemp), and their gradients (gy-GG2%*%betatemp)
+  #' @param beta.all A list of two elements: baseline betas to update for each LD block (betatemp), and their gradients (gy-GG2%*%betatemp)
   #' @param GG2 A covariance matrix of reference genotypes (p'*p')
   #' @param geno_ref A genotype matrix of reference panel (n*p')
   #' @param learningrate Learning rate
@@ -50,8 +51,6 @@ updateCoeff <- function(beta.all, GG2, geno_ref, learningrate, maxiter, betaSD, 
     
     curr_R2 = R_num^2/sum(PRS^2)
 
-    R2_list = c(R2_list, curr_R2)
-
     if (curr_R2 < prev_R2) {
         cnt = cnt + 1
     }
@@ -89,7 +88,7 @@ block_calculation_pv_es<-function(cor,num,nsnp,temp.file, lr_list, maxiter, sum_
 
   cat('read Gtemp block ',num,'\n')
 
-  if (class(Gtemp)=="try-error"){
+  if ("try-error" %in% class(Gtemp)){
     print('error while reading Bedfile')
     return(NULL)
   }else{
@@ -119,7 +118,7 @@ block_calculation_pv_es<-function(cor,num,nsnp,temp.file, lr_list, maxiter, sum_
     beta.init=cbind(u0, betatemp)
 
     ###
-    Gtemp2 = scale(Gtemp) 
+    Gtemp3 = scale(Gtemp) 
 
     sum_stats_target_val_block = sum_stats_target_val[sum_stats_target_val$SNP %in% geno_info2$V2,]
 
@@ -131,13 +130,16 @@ block_calculation_pv_es<-function(cor,num,nsnp,temp.file, lr_list, maxiter, sum_
     for (factor1 in lr_list){
       learningrate=1/nsnp*factor1
       if (learningrate>1){learningrate=1}
-      results = updateCoeff(beta.init, GG2, Gtemp3, learningrate, iter, geno_info2$sd, sum_stats_target_val_block, trace, update_new = FALSE)
+      results = updateCoeff(beta.init, GG2, Gtemp3, learningrate, maxiter, geno_info2$sd, sum_stats_target_val_block, patience, trace)
       beta.all=cbind(beta.all,results[[1]])
       beta_rho = c(beta_rho, results[[2]])
       beta_g = cbind(beta_g, results[[3]])
     }
     
-    geno_info2=cbind(geno_info2[,-c('A1','order')],as.data.frame(beta.all)) # delete A1, order
+    cols_to_drop <- match(c("A1", "order"), colnames(geno_info2))
+    geno_info2 <- cbind(geno_info2[, -cols_to_drop, drop = FALSE], as.data.frame(beta.all))
+
+    # geno_info2=cbind(geno_info2[,-c('A1','order')],as.data.frame(beta.all)) # delete A1, order
     
     rm(beta.init, beta.all, Gtemp, Gtemp3, betatemp)
     gc()
@@ -192,7 +194,7 @@ PRStr_calculation_pv_es<-function(sum_stats_target_train, ref_file, LDblocks, nu
   ref.bim <- ref.bim[ref.bim$V1 %in% 1:22,]
 
   ref.bim$order=1:nrow(ref.bim)
-  bim_sum_stats=merge(ref.bim, sum_stats_target_train,by.x="V2",by.y="SNP",order=FALSE)
+  bim_sum_stats=merge(ref.bim, sum_stats_target_train,by.x="V2",by.y="SNP",sort=FALSE)
   bim_sum_stats=bim_sum_stats[order(bim_sum_stats$order),]
   
 # remove duplicates
@@ -207,7 +209,7 @@ PRStr_calculation_pv_es<-function(sum_stats_target_train, ref_file, LDblocks, nu
   bim_sum_stats=bim_sum_stats[which(!is.na(bim_sum_stats$Beta2)),c("V2","V1","V5","V6","order","Beta2","cor")] 
   
   ## match ref with sum_stats_target_val & check allele flip 
-  bim_sum_stats_val=merge(ref.bim, sum_stats_target_val, by.x="V2",by.y="SNP",order=FALSE)
+  bim_sum_stats_val=merge(ref.bim, sum_stats_target_val, by.x="V2",by.y="SNP",sort=FALSE)
   bim_sum_stats_val=bim_sum_stats_val[order(bim_sum_stats_val$order),]
   
   bim_sum_stats_val = bim_sum_stats_val[!duplicated(bim_sum_stats_val$V2),]
@@ -232,15 +234,13 @@ PRStr_calculation_pv_es<-function(sum_stats_target_train, ref_file, LDblocks, nu
   } 
   
   # assign BedFileReader object
-  BedFileReader <- new( "BedFileReader", paste0(ref_file,".fam"), paste0(ref_file,".bim"), paste0(ref_file,".bed"))
-  result = try(BedFileReader$snp_index_func(), silent=TRUE)
+  BedFileReader_ref <- new( BedFileReader, paste0(ref_file,".fam"), paste0(ref_file,".bim"), paste0(ref_file,".bed"))
+  result = try(BedFileReader_ref$snp_index_func(), silent=TRUE)
 
-  tic('block_calculation')
   results.list <- mclapply(unique(LDblocks2[[1]]), function(i) {
     		block_calculation_pv_es(cor=bim_sum_stats[which(LDblocks2[[1]]==i),], num=which(i==unique(LDblocks2[[1]])),nsnp=nrow(bim_sum_stats),
-            temp.file, lr_list, iter,bim_sum_stats_val, patience, trace, BedFileReader)
+            temp.file, lr_list, maxiter,bim_sum_stats_val, patience, trace, BedFileReader_ref)
   	}, mc.cores=num_cores)
-  toc()
 
   beta.byL <- do.call("rbind", lapply(results.list, function(x) x[[1]]))
   colnames(beta.byL)[1:3]=c("SNP","CHR","A1")
@@ -284,12 +284,10 @@ pseudo_split <- function (target_sumstats, subprop, ref_file_ps, tempfile, rando
     target_sumstats_ref=target_sumstats_ref[which(! is.na(target_sumstats_ref$cor2)),c("SNP","V5","V6","cor2","N")] #Direction -> beta
     colnames(target_sumstats_ref)[2:3] = c('A1','A2') # A1: effect, A2: ref
 
-    BedFileReader_ps <- new( "BedFileReader", paste0(ref_file_ps,".fam"), paste0(ref_file_ps,".bim"), paste0(ref_file_ps,".bed"))
+    BedFileReader_ps <- new( BedFileReader, paste0(ref_file_ps,".fam"), paste0(ref_file_ps,".bim"), paste0(ref_file_ps,".bed"))
     result = try(BedFileReader_ps$snp_index_func(), silent=TRUE)
     
-    tic('reading whole reference panel')
     X <- readSomeSnp(target_sumstats_ref$SNP, BedFileReader = BedFileReader_ps)
-    toc()
 
     flag=which(apply(X, 2, sd, na.rm = TRUE)!=0)
 
@@ -355,55 +353,6 @@ PTL_PRS_bwes<-function(ref_file,sum_stats_file,target_sumstats_file, subprop, re
   # setMethod("initialize","BedFileReader", function(.Object, ...) {
   #   .Object@pointer <-.Call(BedFileReader_method("new"), ... )
   #   .Object})
-
-  # Rcpp module loading
-  BedFileReader <- Rcpp::Module("BedFileReader_module", package = "PTL.PRS")
-
-  # Create an S4 class in R that corresponds to your C++ class
-  setClass("BedFileReader",
-          slots = list(pointer = "externalptr"))
-
-  # Define methods
-  setMethod("initialize", "BedFileReader", function(.Object, ...) {
-    .Object@pointer <- new(BedFileReader)
-    .Object
-  })
-
-  setMethod("snp_index_func", "BedFileReader", function(object) {
-    if (is.null(object@pointer)) {
-        stop("BedFileReader not properly initialized.")
-    }
-    result <- tryCatch({
-        object@pointer$snp_index_func()
-    }, error = function(e) {
-        stop("Error in mapping SNPname to index: ", e$message)
-    })
-    return(result)
-  }) 
-
-  setMethod("findSnpIndex", "BedFileReader", function(object) {
-    if (is.null(object@pointer)) {
-        stop("BedFileReader not properly initialized.")
-    }
-    result <- tryCatch({
-        object@pointer$findSnpIndex()
-    }, error = function(e) {
-        stop("Error in finding SNP index: ", e$message)
-    })
-    return(result)
-  }) 
-
-  setMethod("readOneSnp", "BedFileReader", function(object) {
-    if (is.null(object@pointer)) {
-        stop("BedFileReader not properly initialized.")
-    }
-    result <- tryCatch({
-        object@pointer$readOneSnp()
-    }, error = function(e) {
-        stop("Error in reading SNP: ", e$message)
-    })
-    return(result)
-  }) 
 
 	sum_stats=data.frame(fread(sum_stats_file))
 	if (ncol(sum_stats)==4){ 
@@ -479,7 +428,7 @@ for(group in c('train','val')){
   }
 
   # block-wise gradient descent
-	results=PRStr_calculation_pv_es(sum_stats_target_train, ref_file, sum_stats, LDblocks, num_cores, temp.file=paste0(tempfile,"_step1"), lr_list, iter, sum_stats_target_val, patience,trace)
+	results=PRStr_calculation_pv_es(sum_stats_target_train, ref_file, LDblocks, num_cores, temp.file=paste0(tempfile,"_step1"), lr_list, iter, sum_stats_target_val, patience,trace)
   
 	write.table(as.data.frame(results[[1]]),file=paste0(tempfile,"_beta.list.txt"),row.names=F,quote=F,col.names=T)
   # write.table(as.data.frame(results[[2]]),file=paste0(tempfile,"_betaRho.txt"),row.names=F,quote=F,col.names=F)

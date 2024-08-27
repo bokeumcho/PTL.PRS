@@ -48,48 +48,6 @@ TL_PRS_test <- function(plink_file, ped_test_file, best.beta, best.param, Ytype,
 #     .Object@pointer <-.Call(BedFileReader_method("new"), ... )
 #     .Object})
 
-  # Rcpp module loading
-  BedFileReader <- Rcpp::Module("BedFileReader_module", package = "PTL.PRS")
-
-  # Create an S4 class in R that corresponds to your C++ class
-  setClass("BedFileReader", slots = list(pointer = "externalptr"))
-
-  # Define methods
-  setMethod("initialize", "BedFileReader", function(.Object, ...) {
-    .Object@pointer <- new(BedFileReader)
-    .Object
-  })
-
-  setMethod("snp_index_func", "BedFileReader", function(object) {
-    if (is.null(object@pointer)) {
-        stop("BedFileReader not properly initialized.")
-    }
-    result <- tryCatch({ object@pointer$snp_index_func() }, error = function(e) {
-        stop("Error in mapping SNPname to index: ", e$message)
-    })
-    return(result)
-  }) 
-
-  setMethod("findSnpIndex", "BedFileReader", function(object) {
-    if (is.null(object@pointer)) {
-        stop("BedFileReader not properly initialized.")
-    }
-    result <- tryCatch({ object@pointer$findSnpIndex() }, error = function(e) {
-        stop("Error in finding SNP index: ", e$message)
-    })
-    return(result)
-  }) 
-
-  setMethod("readOneSnp", "BedFileReader", function(object) {
-    if (is.null(object@pointer)) {
-        stop("BedFileReader not properly initialized.")
-    }
-    result <- tryCatch({ object@pointer$readOneSnp() }, error = function(e) {
-        stop("Error in reading SNP: ", e$message)
-    })
-    return(result)
-  }) 
-
   ped_test = fread(ped_test_file,header=T, fill=TRUE)
 
   ## by CHRs -- function!!
