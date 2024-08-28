@@ -13,7 +13,7 @@ install.packages(c("data.table", "lassosum", "parallel", "Rcpp"), dependencies=T
 
 If you have `devtools`, you can type: 
 ```r
-install_github("bokeumcho/TLPRS")
+install_github("bokeumcho/PTL.PRS")
 ```
 for the latest development version. Or you can clone the latest development version here and install yourself using `devtools`. 
 
