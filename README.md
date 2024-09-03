@@ -129,7 +129,7 @@ out.beta = PTL_PRS_bwes(
 
 ### TEST ###
 plink_file = '1kg_SAS_ALL'
-by_chr = FALSE
+by_chrom = FALSE
 
 ped_test_file='test_ped.txt'
 
@@ -140,7 +140,7 @@ Covar_name="sex"
 best.beta = fread(paste0(outfile,"_best.beta.txt")) #out.beta$best.beta 
 best.param = fread(paste0(outfile,"_best.param.txt")) #out.beta$best.param 
 
-TL_PRS_test(plink_file, ped_test_file, best.beta, best.param, Ytype, Covar_name,Y_name)
+TL_PRS_test(plink_file, by_chrom, ped_test_file, best.beta, best.param, Ytype, Covar_name,Y_name)
 ```
 
 ## Support
