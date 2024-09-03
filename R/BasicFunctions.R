@@ -36,7 +36,7 @@ readSomeSnp <- function(snpList, sampleList=NULL, BedFileReader) {
     return(geno_df1) # n*p
 }
 
-TL_PRS_test <- function(plink_file, ped_test_file, best.beta, best.param, Ytype, Covar_name,Y_name){
+TL_PRS_test <- function(plink_file, by_chr, ped_test_file, best.beta, best.param, Ytype, Covar_name,Y_name){
     #' Test performance of PTL-PRS
     #' @export
     #' 
@@ -50,30 +50,37 @@ TL_PRS_test <- function(plink_file, ped_test_file, best.beta, best.param, Ytype,
 
   ped_test = fread(ped_test_file,header=T, fill=TRUE)
 
-  ## by CHRs -- function!!
-  PRS.all <- matrix(0, nrow=dim(ped_test)[1], ncol=2) 
+    BedFileReaders <- BedFileReader_prep(plink_file)
 
-  BedFileReaders <- BedFileReader_prep(plink_file)
+    if (by_chr) {
+    ## by CHRs -- function!!
+    PRS.all <- matrix(0, nrow=dim(ped_test)[1], ncol=2) 
 
-  # Loop through each unique value in LDblocks2[[1]]
-  for (i in unique(best.beta$CHR)) {
-      # Calculate the partial result
-      partial_PRS <- Calculate_PRS_direct(
-          ped_test, 
-          best.beta[best.beta$CHR==i,1:3], 
-          best.beta[best.beta$CHR==i,4:5],
-          BedFileReaders[[i]]
-          )
+    # Loop through each unique value in LDblocks2[[1]]
+    for (i in unique(best.beta$CHR)) {
+        # Calculate the partial result
+        partial_PRS <- Calculate_PRS_direct(
+            ped_test, 
+            best.beta[best.beta$CHR==i,1:3], 
+            best.beta[best.beta$CHR==i,4:5],
+            BedFileReaders[[i]],
+            plink_file, by_chr
+            )
 
-      print(dim(partial_PRS))
-      # Add the partial result to the cumulative total
-      PRS.all <- PRS.all + partial_PRS  # Adjust this operation based on how results are combined
-      rm(partial_PRS)
-      gc()
-  }
-
-  if (colnames(ped_test)[1] == 'FID') {ped_test$IID = ped_test$FID
-  } else ped_test$FID = ped_test$IID
+        print(dim(partial_PRS))
+        # Add the partial result to the cumulative total
+        PRS.all <- PRS.all + partial_PRS  # Adjust this operation based on how results are combined
+        rm(partial_PRS)
+        gc()
+    }
+    } else {
+        PRS.all <- Calculate_PRS_direct(
+            ped_test, 
+            best.beta[,1:3], 
+            best.beta[,4:5],
+            BedFileReaders
+            )
+    }
 
 #   PRS.all = cbind(ped_test[,c('FID','IID')],PRS.all)
 #   colnames(PRS.all)[3:4]=c("SCORESUM","SCORESUM")
@@ -104,33 +111,47 @@ TL_PRS_test <- function(plink_file, ped_test_file, best.beta, best.param, Ytype,
   gc()
 }
 
-BedFileReader_prep <- function(plink_file){
-# Create a list to store BedFileReader objects
-BedFileReaders <- list()
+BedFileReader_prep <- function(plink_file, by_chr=FALSE){
+if (by_chr){
+    # Create a list to store BedFileReader objects
+    BedFileReaders <- list()
 
-# Loop through chromosomes
-for (chr in 1:22) {
-  cat(sprintf("Processing chromosome: %d\n", chr))
-  
-  tic <- Sys.time() # Start timing
-  
-  # Assuming the file naming convention is consistent and correct
-  train_file <- paste0(plink_file, chr, '_v3')
-  
-  # Attempt to create a new BedFileReader object
-  tryCatch({
-    BedFileReaders[[chr]] <- new("BedFileReader", 
-                                 paste0(train_file, ".fam"), 
-                                 paste0(train_file, ".bim"), 
-                                 paste0(train_file, ".bed"))
-    # Assuming snp_index_func is a method of BedFileReader
-    result <- BedFileReaders[[chr]]$snp_index_func()
-  }, error = function(e) {
-    cat("An error occurred: ", e$message, "\n")
-  })
-  
-  toc <- Sys.time() # End timing
-  cat(sprintf("Time taken for chromosome %d: %f seconds\n", chr, as.numeric(toc - tic)))
+    # Loop through chromosomes
+    for (chr in 1:22) {
+    cat(sprintf("Processing chromosome: %d\n", chr))
+    
+    tic <- Sys.time() # Start timing
+    
+    # Assuming the file naming convention is consistent and correct
+    train_file <- paste0(plink_file, chr)
+    
+    # Attempt to create a new BedFileReader object
+    tryCatch({
+        BedFileReaders[[chr]] <- new("BedFileReader", 
+                                    paste0(train_file, ".fam"), 
+                                    paste0(train_file, ".bim"), 
+                                    paste0(train_file, ".bed"))
+        # Assuming snp_index_func is a method of BedFileReader
+        result <- BedFileReaders[[chr]]$snp_index_func()
+    }, error = function(e) {
+        cat("An error occurred: ", e$message, "\n")
+    })
+    
+    toc <- Sys.time() # End timing
+    cat(sprintf("Time taken for chromosome %d: %f seconds\n", chr, as.numeric(toc - tic)))
+    }
+} else{    
+    # Attempt to create a new BedFileReader object
+    tryCatch({
+        BedFileReaders <- new("BedFileReader", 
+                                    paste0(plink_file, ".fam"), 
+                                    paste0(plink_file, ".bim"), 
+                                    paste0(plink_file, ".bed"))
+        # Assuming snp_index_func is a method of BedFileReader
+        result <- BedFileReaders$snp_index_func()
+    }, error = function(e) {
+        cat("An error occurred: ", e$message, "\n")
+    })
 }
 
 return(BedFileReaders)
@@ -298,11 +319,16 @@ linear_result_generator<-function(PRS,ped,Covar_name,Y_name){
 
 # ped_val=ped_test; beta.info=best.beta[best.beta$CHR==i,1:3]; beta.all=best.beta[best.beta$CHR==i,4:5]; BedFileReader_new = BedFileReaders[[i]]
 # i=1; ped_val=ped; beta.all = beta.all[beta.info$CHR==i,]; beta.info = beta.info[beta.info$CHR==i,]
-Calculate_PRS_direct <- function(ped_val, beta.info, beta.all, BedFileReader_new, plink_file){
+Calculate_PRS_direct <- function(ped_val, beta.info, beta.all, BedFileReader_new, plink_file, by_chr){
+   if (by_chr) {
     cat('calculate PRS for CHR',beta.info$CHR[1],'\n')
 
     # allele-flipping
     plink_bim = fread(paste0(plink_file, beta.info$CHR[1], '_v3.bim'))
+   } else {
+    plink_bim = fread(plink_file, '.bim')
+   }
+
     beta.info$order = 1:nrow(beta.info)
     bim_sum_stats=merge(plink_bim, beta.info,by.x="V2",by.y="SNP",sort=FALSE)
     bim_sum_stats = bim_sum_stats[!duplicated(bim_sum_stats$V2),]
@@ -311,7 +337,7 @@ Calculate_PRS_direct <- function(ped_val, beta.info, beta.all, BedFileReader_new
     if (length(flag)>0){  beta.all[flag,]=-beta.all[flag,]}
 
     tic('read ukb G')
-        G_val = readSomeSnp(beta.info$SNP, ped_val$ukb_idx, BedFileReader=BedFileReader_new) 
+        G_val = readSomeSnp(beta.info$SNP, ped_val$fam_idx, BedFileReader=BedFileReader_new) 
     toc()
 
     cat(dim(G_val), dim(beta.all),'\n')
@@ -591,7 +617,7 @@ readG_byCHR <- function(ped_val, geno_info2, BedFileReaders){
     G_val = matrix(,nrow=nrow(ped_val)) #initialize
 
     for (chr in unique(geno_info2$V1)){
-        G_temp = readSomeSnp(geno_info2$V2, ped_val$ukb_idx, BedFileReaders[[as.numeric(chr)]]) 
+        G_temp = readSomeSnp(geno_info2$V2, ped_val$fam_idx, BedFileReaders[[as.numeric(chr)]]) 
         G_val = cbind(G_val, G_temp) # n*p
     }
     G_val = G_val[,-1]
