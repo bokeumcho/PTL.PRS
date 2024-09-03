@@ -67,9 +67,7 @@ the data frame containing three columns: "SNP","A1","beta". Note that this is th
 the data frame containing a grid of candidates of learning rates and the number of iterations that we consider. 
 
 ## Example R script
-You can download the example data for the example R script from the Dropbox link below:
-https://www.dropbox.com/scl/fo/xsm783tn8mt7h0vovhjwa/ABSam-2r6i-f3P1ED_rTRuM?rlkey=7zgkyrvnzu8rc78tnuolmmtcw&st=5237nl4l&dl=0
-
+You can use the files in example_data folder to run the example R script.
 
 ```r
 library(data.table)
@@ -79,7 +77,7 @@ library(Rcpp)
 
 library(PTL.PRS)
 
-setwd("bokeum/PTL.PRS/Example_data_PTL.PRS")  ###setup your work path.
+setwd("bokeum/PTL.PRS/example_data")  ###setup your work path.
 
 ref_file = '1kg_SAS_ref' 
 ref_file_ps = '1kg_SAS_ref'
