@@ -67,7 +67,8 @@ the data frame containing three columns: "SNP","A1","beta". Note that this is th
 the data frame containing a grid of candidates of learning rates and the number of iterations that we consider. 
 
 ## Example R script
-You can download the example data from here: https://www.dropbox.com/scl/fo/xsm783tn8mt7h0vovhjwa/ABSam-2r6i-f3P1ED_rTRuM?rlkey=7zgkyrvnzu8rc78tnuolmmtcw&st=5237nl4l&dl=0
+You can download the example data for the example R script from the Dropbox link below:
+https://www.dropbox.com/scl/fo/xsm783tn8mt7h0vovhjwa/ABSam-2r6i-f3P1ED_rTRuM?rlkey=7zgkyrvnzu8rc78tnuolmmtcw&st=5237nl4l&dl=0
 
 
 ```r
@@ -140,3 +141,7 @@ best.beta = fread(paste0(outfile,"_best.beta.txt")) #out.beta$best.beta
 best.param = fread(paste0(outfile,"_best.param.txt")) #out.beta$best.param 
 
 TL_PRS_test(plink_file, ped_test_file, best.beta, best.param, Ytype, Covar_name,Y_name)
+```
+
+## Support
+If there are any further questions or problems with running or installing `PTL.PRS`, please do email me at <bokeum1810@snu.ac.kr>. 
