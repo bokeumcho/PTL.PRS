@@ -36,19 +36,14 @@ readSomeSnp <- function(snpList, sampleList=NULL, BedFileReader) {
     return(geno_df1) # n*p
 }
 
-TL_PRS_test <- function(plink_file, by_chr, ped_test_file, best.beta, best.param, Ytype, Covar_name,Y_name){
+TL_PRS_test <- function(plink_file, by_chr, ped_test_file, outfile, Ytype, Covar_name,Y_name){
     #' Test performance of PTL-PRS
     #' @export
     #' 
-#     sourceCpp("/media/leelabsg-storage1/bokeum/TLPRS/source/BedFileReader.cpp")
-#   setClass("BedFileReader", representation( pointer = "externalptr" ) )
-#   BedFileReader_method <- function(name) {paste( "BedFileReader", name, sep = "__" ) }
-#   setMethod( "$", "BedFileReader", function(x, name ) {function(...) .Call(BedFileReader_method(name),x@pointer, ... )})
-#   setMethod("initialize","BedFileReader", function(.Object, ...) {
-#     .Object@pointer <-.Call(BedFileReader_method("new"), ... )
-#     .Object})
-
   ped_test = fread(ped_test_file,header=T, fill=TRUE)
+
+    best.beta = fread(paste0(outfile,"_best.beta.txt")) #out.beta$best.beta 
+    best.param = fread(paste0(outfile,"_best.param.txt")) #out.beta$best.param 
 
     BedFileReaders <- BedFileReader_prep(plink_file)
 
@@ -78,7 +73,8 @@ TL_PRS_test <- function(plink_file, by_chr, ped_test_file, best.beta, best.param
             ped_test, 
             best.beta[,1:3], 
             best.beta[,4:5],
-            BedFileReaders
+            BedFileReaders,
+            plink_file, by_chr
             )
     }
 
@@ -90,23 +86,12 @@ TL_PRS_test <- function(plink_file, by_chr, ped_test_file, best.beta, best.param
   if (Ytype=="C"){
       base_R2 = as.numeric(linear_result_generator(PRS.all[,1],ped_test,Covar_name,Y_name))
       model_R2 = as.numeric(linear_result_generator(PRS.all[,2],ped_test,Covar_name,Y_name))
-    cat("baseline R2: ", base_R2, "\n model R2: ", model_R2, '\n best lr: ', best.param[[1]]/dim(best.beta)[1]) #, '\n best iter: ', best.params[2],'\n'
   } else {
       base_R2 = as.numeric(logistic_result_generator(PRS.all[,1],ped_test,Covar_name,Y_name))
       model_R2 = as.numeric(logistic_result_generator(PRS.all[,2],ped_test,Covar_name,Y_name))
-      
-      pred = prediction(PRS.all[,1], ped_test[,2])
-      perf = performance(pred, measure='tpr', x.measure='fpr')
-      auc = performance(pred, measure = "auc")
-      base_AUC = auc@y.values[[1]]
-      
-      pred = prediction(PRS.all[,2], ped_test[,2])
-      perf = performance(pred, measure='tpr', x.measure='fpr')
-      auc = performance(pred, measure = "auc")
-      model_AUC = auc@y.values[[1]]
-
-    cat("baseline R2: ", base_R2, "\n model R2: ", model_R2, '\n base AUC: ', base_AUC, '\n model AUC: ', model_AUC, '\n best lr: ', best.param[[1]]/dim(best.beta)[1],'\n') #, '\n best iter: ', best.params[2],'\n'
     }
+
+    cat("baseline R2: ", base_R2, "\n model R2: ", model_R2, '\n best lr: ', best.param[[1]]/dim(best.beta)[1]) #, '\n best iter: ', best.params[2],'\n'
 
   gc()
 }
@@ -127,7 +112,7 @@ if (by_chr){
     
     # Attempt to create a new BedFileReader object
     tryCatch({
-        BedFileReaders[[chr]] <- new("BedFileReader", 
+        BedFileReaders[[chr]] <- new(BedFileReader, 
                                     paste0(train_file, ".fam"), 
                                     paste0(train_file, ".bim"), 
                                     paste0(train_file, ".bed"))
@@ -143,7 +128,7 @@ if (by_chr){
 } else{    
     # Attempt to create a new BedFileReader object
     tryCatch({
-        BedFileReaders <- new("BedFileReader", 
+        BedFileReaders <- new(BedFileReader, 
                                     paste0(plink_file, ".fam"), 
                                     paste0(plink_file, ".bim"), 
                                     paste0(plink_file, ".bed"))
@@ -326,25 +311,19 @@ Calculate_PRS_direct <- function(ped_val, beta.info, beta.all, BedFileReader_new
     # allele-flipping
     plink_bim = fread(paste0(plink_file, beta.info$CHR[1], '_v3.bim'))
    } else {
-    plink_bim = fread(plink_file, '.bim')
+    plink_bim = fread(paste0(plink_file, '.bim'))
    }
 
     beta.info$order = 1:nrow(beta.info)
     bim_sum_stats=merge(plink_bim, beta.info,by.x="V2",by.y="SNP",sort=FALSE)
     bim_sum_stats = bim_sum_stats[!duplicated(bim_sum_stats$V2),]
 
-    flag=bim_sum_stats[bim_sum_stats$V6==bim_sum_stats$A1,'order'][[1]] # flipped. when ref=ref_ps, length(flag2)=0
-    if (length(flag)>0){  beta.all[flag,]=-beta.all[flag,]}
+    flag=bim_sum_stats[bim_sum_stats$V6==bim_sum_stats$A1,'order'] # flipped. when ref=ref_ps, length(flag2)=0
+    if (length(flag)>0){  beta.all[flag[[1]],]=-beta.all[flag[[1]],]}
 
-    tic('read ukb G')
-        G_val = readSomeSnp(beta.info$SNP, ped_val$fam_idx, BedFileReader=BedFileReader_new) 
-    toc()
+    G_val = readSomeSnp(beta.info$SNP, ped_val$fam_idx, BedFileReader=BedFileReader_new) 
 
-    cat(dim(G_val), dim(beta.all),'\n')
-
-    tic('calculate beta * G')
     PRS.all = as.matrix(G_val) %*% as.matrix(beta.all)
-    toc()
     return(PRS.all)
 }
 
@@ -428,7 +407,6 @@ splitgenome2<-function (CHR, POS, ref.CHR, ref.breaks, details = T, right = TRUE
 }
 
 PRStr_tuning<-function(Beta.all, ped_val_file, tempfile, Covar_name,Y_name, Ytype, lr_list, iter, plink_file, BedFileReaders){
-    tic('beta list prep')
     beta.info=Beta.all[,1:3]
     for (i in 9:ncol(Beta.all)){
       sdtemp=sd(Beta.all[,i],na.rm=T)
@@ -445,56 +423,51 @@ PRStr_tuning<-function(Beta.all, ped_val_file, tempfile, Covar_name,Y_name, Ytyp
     # beta.all[, (10:ncol(beta.all)) := lapply(.SD, function(x) x / beta.all$sd), .SDcols = 10:ncol(beta.all)]
     # beta.all = beta.all[,10:ncol(beta.all)]
     rm(Beta.all)
-    toc()
 
     ped = fread(ped_val_file,header=T, fill=TRUE)
 
-    tic('calculating PRS')
-        ## by CHRs
-        PRS.all <- matrix(0, nrow=dim(ped)[1], ncol=dim(beta.all)[2])  # Adjust this initialization based on the actual structure of your result
+    ## by CHRs
+    PRS.all <- matrix(0, nrow=dim(ped)[1], ncol=dim(beta.all)[2])  # Adjust this initialization based on the actual structure of your result
 
-        # Loop through each unique value in LDblocks2[[1]]
-        for (i in unique(beta.info$CHR)) {
-            # Calculate the partial result
-            partial_PRS <- Calculate_PRS_direct(
-                ped, 
-                beta.info[beta.info$CHR==i,], 
-                beta.all[beta.info$CHR==i,],
-                BedFileReaders[[as.numeric(i)]],
-                plink_file
-            )
+    # Loop through each unique value in LDblocks2[[1]]
+    for (i in unique(beta.info$CHR)) {
+        # Calculate the partial result
+        partial_PRS <- Calculate_PRS_direct(
+            ped, 
+            beta.info[beta.info$CHR==i,], 
+            beta.all[beta.info$CHR==i,],
+            BedFileReaders[[as.numeric(i)]],
+            plink_file
+        )
 
-            print(dim(partial_PRS))
-            # Add the partial result to the cumulative total
-            PRS.all <- PRS.all + partial_PRS  # Adjust this operation based on how results are combined
-        }
+        print(dim(partial_PRS))
+        # Add the partial result to the cumulative total
+        PRS.all <- PRS.all + partial_PRS  # Adjust this operation based on how results are combined
+    }
 
-    toc()
 
-        print('start calculating R-sqaured...')
+    print('start calculating R-sqaured...')
 
-    tic('calculating R squared')
-        # system.time({
-        out.item=data.frame("order"=NA,"R2"=NA, "auc"=NA)
-        for (flag in 3:ncol(PRS.all)){
-        out.item[flag-2,1]=flag-2
-        resulttemp=PRS.all[,..flag] #c(1,2,..flag)
-        colnames(resulttemp)[1]="SCORESUM"
-        if (Ytype=="C"){
-            out.item[flag-2,2] = as.numeric(linear_result_generator(resulttemp,ped,Covar_name,Y_name))
-        } else {
-            out.item[flag-2,2]=as.numeric(logistic_result_generator(resulttemp,ped,Covar_name,Y_name))
-            pred = prediction(PRS.all[,..flag], ped[,2])
-            # perf = performance(pred, measure='tpr', x.measure='fpr')
-            auc = performance(pred, measure = "auc")
-            out.item[flag-2,3] = auc@y.values[[1]]
-        }
-        }
-        # })
+    # system.time({
+    out.item=data.frame("order"=NA,"R2"=NA, "auc"=NA)
+    for (flag in 3:ncol(PRS.all)){
+    out.item[flag-2,1]=flag-2
+    resulttemp=PRS.all[,..flag] #c(1,2,..flag)
+    colnames(resulttemp)[1]="SCORESUM"
+    if (Ytype=="C"){
+        out.item[flag-2,2] = as.numeric(linear_result_generator(resulttemp,ped,Covar_name,Y_name))
+    } else {
+        out.item[flag-2,2]=as.numeric(logistic_result_generator(resulttemp,ped,Covar_name,Y_name))
+        pred = prediction(PRS.all[,..flag], ped[,2])
+        # perf = performance(pred, measure='tpr', x.measure='fpr')
+        auc = performance(pred, measure = "auc")
+        out.item[flag-2,3] = auc@y.values[[1]]
+    }
+    }
+    # })
 
-        gc()
+    gc()
 
-    toc()
 
     write.table(out.item[,1:3],file=paste0(tempfile,"_R_val.txt"),row.names=F,quote=F,col.names=T)
     # out.item <- fread(paste0(tempfile,"_R_val.txt"))
@@ -510,7 +483,6 @@ PRStr_tuning<-function(Beta.all, ped_val_file, tempfile, Covar_name,Y_name, Ytyp
 }
 
 PRStr_tuning_es <-function(Beta.all, ped_val_file, tempfile, Covar_name,Y_name, Ytype, lr_list, iter, plink_file, patience){
-    tic('beta list prep')
     beta.info=Beta.all[,1:3]
     for (i in 10:ncol(Beta.all)){
       sdtemp=sd(Beta.all[,i],na.rm=T)
@@ -525,7 +497,6 @@ PRStr_tuning_es <-function(Beta.all, ped_val_file, tempfile, Covar_name,Y_name, 
     beta.all[, (10:ncol(beta.all)) := lapply(.SD, function(x) x / Beta.all$sd), .SDcols = 10:ncol(beta.all)]
     beta.all = beta.all[,10:ncol(beta.all)]
     rm(Beta.all)
-    toc()
 
     ped = fread(ped_val_file,header=T, fill=TRUE)
     
@@ -537,7 +508,6 @@ PRStr_tuning_es <-function(Beta.all, ped_val_file, tempfile, Covar_name,Y_name, 
         beta.vec = beta.all[,..idx]
         PRS.all.vec <- rep(0, dim(ped)[1]) 
 
-        tic('calculating PRS')
         # Loop through each unique value by chrom
         for (i in unique(beta.info$CHR)) {
             # Calculate the partial result
@@ -551,7 +521,6 @@ PRStr_tuning_es <-function(Beta.all, ped_val_file, tempfile, Covar_name,Y_name, 
             # Add the partial result to the cumulative total
             PRS.all.vec <- PRS.all.vec + partial_PRS  # Adjust this operation based on how results are combined
         }
-        toc()
         
         # delete later
         if (colnames(ped)[1] == 'FID') {ped$IID = ped$FID
@@ -562,7 +531,6 @@ PRStr_tuning_es <-function(Beta.all, ped_val_file, tempfile, Covar_name,Y_name, 
         #write.table(PRS.all, file=paste0(tempfile,"_PRS_",group,".txt"),row.names=F,quote=F,col.names=T)
         print('start calculating R-sqaured...')
 
-        tic('calculating R squared')
         colnames(PRS.all)[3]="SCORESUM"
         if (Ytype=="C"){
             curr_R2 = as.numeric(linear_result_generator(PRS.all,ped,Covar_name,Y_name))
@@ -587,7 +555,6 @@ PRStr_tuning_es <-function(Beta.all, ped_val_file, tempfile, Covar_name,Y_name, 
         }
         prev_R2 = curr_R2
         gc()
-        toc()
     }
 }
 
@@ -737,7 +704,6 @@ PRStr_main_check_pv<-function(ref_file, sum_stats_file,target_sumstats_file, sub
 }
 
 PRStr_tuning_pv<-function(Beta.all, sum_stats_target_train, sum_stats_target_val, tempfile, lr_list, iter, BedFileReader){
-    tic('beta list prep')
     beta.info=Beta.all[,1:3]
     for (i in 9:ncol(Beta.all)){
       sdtemp=sd(Beta.all[,i],na.rm=T)
@@ -755,11 +721,8 @@ PRStr_tuning_pv<-function(Beta.all, sum_stats_target_train, sum_stats_target_val
     # beta.all = beta.all[,10:ncol(beta.all)]
     rm(Beta.all)
 
-    toc()
 
-    tic('reading ref G')
     geno_ref = readSomeSnp(beta.info$SNP, BedFileReader = BedFileReader)
-    toc()
 
     # GG = cor(as.matrix(geno_ref))
     flag=which(apply(geno_ref, 2, sd, na.rm = TRUE)!=0) # all nonzero sd
@@ -773,7 +736,6 @@ PRStr_tuning_pv<-function(Beta.all, sum_stats_target_train, sum_stats_target_val
     out.item = as.data.frame(matrix(NA, nrow=ncol(beta.all), ncol=5))
     colnames(out.item) = c('order','R_num_p_tr','R_denom_p_tr',"R_num_p_val","R_denom_p_val")
 
-    tic('calculating pseudo R')
     # system.time({
     for (flag in 1:ncol(beta.all)){ #594:ncol(beta.all)
         # order
@@ -788,8 +750,6 @@ PRStr_tuning_pv<-function(Beta.all, sum_stats_target_train, sum_stats_target_val
     out.item$R2_p_tr = out.item$R_num_p_tr/out.item$R_denom_p_tr
     out.item$R2_p_val = out.item$R_num_p_val/out.item$R_denom_p_val
     
-    toc()
-
     write.table(out.item,file=paste0(tempfile,"_R.txt"),row.names=F,quote=F,col.names=T)
     flag=which(out.item$R2_p_val==max(out.item$R2_p_val))[1]
 
@@ -803,7 +763,6 @@ PRStr_tuning_pv<-function(Beta.all, sum_stats_target_train, sum_stats_target_val
 }
 
 PRStr_tuning_pv_es<-function(Beta.all, sum_stats_target_val, tempfile, lr_list, iter, patience){
-    tic('beta list prep')
     beta.info=Beta.all[,1:3]
     for (i in 10:ncol(Beta.all)){
       sdtemp=sd(Beta.all[,i],na.rm=T)
@@ -819,11 +778,7 @@ PRStr_tuning_pv_es<-function(Beta.all, sum_stats_target_val, tempfile, lr_list, 
     beta.all = beta.all[,10:ncol(beta.all)]
     rm(Beta.all)
 
-    toc()
-
-    tic('reading ref G')
     geno_ref = readSomeSnp(beta.info$SNP)
-    toc()
 
     prev_R2 = 0
     cnt=0
@@ -832,10 +787,8 @@ PRStr_tuning_pv_es<-function(Beta.all, sum_stats_target_val, tempfile, lr_list, 
     # loop through models
     for (idx in 1:ncol(beta.all)){ 
         beta.vec = beta.all[,..idx]
-        tic('calculating pseudo R')
         R_result =Calculate_R(beta.vec, sum_stats_target_val, geno_ref)
         curr_R2 = R_result[[1]]^2/R_result[[2]]
-        toc()
 
         R2_val = c(R2_val, curr_R2)
         
