@@ -2,7 +2,7 @@
 
 This R package helps users to construct multi-ethnic polygenic risk score (PRS) using transfer learning when the individual level data is not available. It can help predict PRS of small group using summary statistics from larger group resources.
 
-This package contains a main function: `PTL_PRS_bwes` for train, `TL_PRS_test` for test, and `pseudo_split` for pseudo splitting.
+This package contains three main functions: `PTL_PRS_bwes` for train, `TL_PRS_test` for test, and `pseudo_split` for pseudo splitting.
 
 ## Installation
 `PTL.PRS` requires the software 'plink' as well as the following R packages:  `data.table`, `lassosum`, `Rcpp` and `parallel`. Install them by: 
