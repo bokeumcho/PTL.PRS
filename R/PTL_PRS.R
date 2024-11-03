@@ -439,7 +439,6 @@ for(group in c('train','val')){
 	write.table(out1$best.beta,file=paste0(tempfile,"_best.beta.txt"),row.names=F,quote=F,col.names=T)
 	write.table(out1$best.param,file=paste0(tempfile,"_best.param.txt"),row.names=F,quote=F,col.names=T)
   write.table(out1$R2.list,file=paste0(tempfile,"_R2_list.txt"),row.names=F,quote=F,col.names=T)
-	write.table(out1$beta.list,file=paste0(tempfile,"_beta.list.txt"),row.names=F,quote=F,col.names=T)
 
   return(out1)
 }

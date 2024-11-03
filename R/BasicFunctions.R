@@ -482,82 +482,6 @@ PRStr_tuning<-function(Beta.all, ped_val_file, tempfile, Covar_name,Y_name, Ytyp
     return(out.final)
 }
 
-PRStr_tuning_es <-function(Beta.all, ped_val_file, tempfile, Covar_name,Y_name, Ytype, lr_list, iter, plink_file, patience){
-    beta.info=Beta.all[,1:3]
-    for (i in 10:ncol(Beta.all)){
-      sdtemp=sd(Beta.all[,i],na.rm=T)
-      if (sdtemp>1){
-        Beta.all[,i:ncol(Beta.all)]=1;
-      }
-    }
-    
-    beta.all <- copy(Beta.all)  # Make a shallow copy if you need to preserve Beta.all
-    setDT(beta.all)  # Convert to data.table, if it's not already
-
-    beta.all[, (10:ncol(beta.all)) := lapply(.SD, function(x) x / Beta.all$sd), .SDcols = 10:ncol(beta.all)]
-    beta.all = beta.all[,10:ncol(beta.all)]
-    rm(Beta.all)
-
-    ped = fread(ped_val_file,header=T, fill=TRUE)
-    
-    prev_R2 = 0
-    cnt=0
-    R2_val = c()
-
-    for (idx in 1:ncol(beta.all)){
-        beta.vec = beta.all[,..idx]
-        PRS.all.vec <- rep(0, dim(ped)[1]) 
-
-        # Loop through each unique value by chrom
-        for (i in unique(beta.info$CHR)) {
-            # Calculate the partial result
-            partial_PRS <- Calculate_PRS_direct(
-                plink_file, ped, 
-                beta.info[beta.info$CHR==i,], 
-                beta.vec[beta.info$CHR==i]
-            )
-
-            print(dim(partial_PRS))
-            # Add the partial result to the cumulative total
-            PRS.all.vec <- PRS.all.vec + partial_PRS  # Adjust this operation based on how results are combined
-        }
-        
-        # delete later
-        if (colnames(ped)[1] == 'FID') {ped$IID = ped$FID
-        } else ped$FID = ped$IID
-
-        PRS.all = cbind(ped[,c('FID','IID')],PRS.all.vec)
-
-        #write.table(PRS.all, file=paste0(tempfile,"_PRS_",group,".txt"),row.names=F,quote=F,col.names=T)
-        print('start calculating R-sqaured...')
-
-        colnames(PRS.all)[3]="SCORESUM"
-        if (Ytype=="C"){
-            curr_R2 = as.numeric(linear_result_generator(PRS.all,ped,Covar_name,Y_name))
-        } else {
-            curr_R2 = as.numeric(logistic_result_generator(PRS.all,ped,Covar_name,Y_name))
-        }
-
-        R2_val = c(R2_val, curr_R2)
-        if (curr_R2 < prev_R2) {
-            cnt = cnt + 1
-        }
-
-        if (cnt > patience) {
-            write.table(R2_val,file=paste0(tempfile,"_R_val.txt"),row.names=F,quote=F,col.names=T)
-            
-            param_table=data.frame("lr"=c(0,rep(1/length(beta.vec)*lr_list,each=iter)),"iter"=c(0,rep(1:iter,length(lr_list))))   
-            out.final=list()
-            out.final$best.params=c(param_table$lr[idx], param_table$iter[idx])
-            out.final$best.beta=cbind(beta.info,"beta"=cbind(beta.all[,1],beta.vec))
-            out.final$param_table=param_table 
-            return (out.final)
-        }
-        prev_R2 = curr_R2
-        gc()
-    }
-}
-
 PRS_tuning_byLR <- function(beta.byL, PRS.byL,ped_val_file,Covar_name,Y_name, Ytype, lr_list){
     ped_val = fread(ped_val_file, header=T, fill=TRUE)
 
@@ -575,6 +499,7 @@ PRS_tuning_byLR <- function(beta.byL, PRS.byL,ped_val_file,Covar_name,Y_name, Yt
   out.final=list()
   out.final$best.param=lr_list[flag]
   out.final$best.beta = as.data.frame(beta.byL)[,c(1:3,9,9+flag)] #SNP, CHR, A1, Beta2, best.beta
+  colnames(out.final$best.beta)[4] = 'base.beta'
   out.final$R2.list = R2.byL
 
   return(out.final)
