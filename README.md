@@ -47,6 +47,7 @@ for the latest development version. Or you can clone the latest development vers
     Pseudo-summary generation flag. If TRUE, pseudo-split target summary statistics into train and validation sets.
 
     - **When `ps` == TRUE**:
+
       6-1. `target_sumstats_file`: The file path for the summary statistics in the target population. This file must contain the following columns: `SNP`, `A1`, `beta`, `p`, and `N`, where:
         - `beta`: Effect size from summary statistics or its signs
         - `p`: p-value
@@ -61,6 +62,7 @@ for the latest development version. Or you can clone the latest development vers
       6-4. `random_seed` (optional): Random seed number for pseudo-splitting target summary statistics.
 
     - **When `ps` == FALSE**:
+    
       6-5. `target_sumstats_train_file`: File path for target summary statistics for training samples. 
       6-6. `target_sumstats_val_file`: File path for target summary statistics for validation samples. 
 
