@@ -2,7 +2,7 @@
 
 This R package helps users to construct multi-ethnic polygenic risk score (PRS) using transfer learning when the individual level data is not available. It can help predict PRS of small group using summary statistics from larger group resources.
 
-This package contains a main function: `PTL_PRS_bwes` for train, `TL_PRS_test` for test, and `pseudo_split` for pseudo splitting.
+This package contains a main function: `PTL_PRS_train` for train, `PTL_PRS_test` for test, and `pseudo_split` for pseudo splitting.
 
 ## Installation
 `PTL.PRS` requires the software 'plink' as well as the following R packages:  `data.table`, `lassosum`, `Rcpp` and `parallel`. Install them by: 
@@ -19,7 +19,7 @@ for the latest development version. Or you can clone the latest development vers
 
 
 ## Inputs of PTL_PRS
-### Input Parameters for PTL-PRS
+### Input Arguments for PTL_PRS_train
 
 1. `ref_file`: 
    The prefix of the PLINK file for the reference panel data in the target population. This file is used to estimate the LD matrix during training and validation steps.
@@ -82,6 +82,12 @@ for the latest development version. Or you can clone the latest development vers
 11. `trace` (optional): 
     Logical; if TRUE, print the stopped iteration.
 
+### Input Arguments for PTL_PRS_test
+1. `plink_file`
+2. `by_chr`
+3. `ped_test_file`
+
+`outfile`, `Ytype`, `Covar_name`,`Y_name` are the same as PTL_
 
 ## Outputs of PTL_PRS
 1. `best.param`: 
@@ -92,6 +98,7 @@ for the latest development version. Or you can clone the latest development vers
 
 3. `R2.list`: 
    A list of R-squared values computed during the validation step.
+
    
 ## Example R script
 You can download the files in Dropbox folder here (https://www.dropbox.com/scl/fo/xsm783tn8mt7h0vovhjwa/ABSam-2r6i-f3P1ED_rTRuM?rlkey=7zgkyrvnzu8rc78tnuolmmtcw&st=s5amjvco&dl=0) to run the example R script.
@@ -105,8 +112,7 @@ library(ROCR)
 
 library(PTL.PRS)
 
-# setwd("bokeum/Example_data_PTL.PRS")  ###setup your work path.
-setwd("/media/leelabsg-storage1/bokeum/example_data")
+setwd("bokeum/Example_data_PTLPRS")  ###setup your work path.
 
 ref_file = '1kg_SAS_ref' 
 ref_file_ps = '1kg_SAS_ref'
@@ -115,30 +121,34 @@ num_cores = 2
 pseudo_test=FALSE
 random_seed=42
 
-sum_stats_file = 't2d_prscs_EUR.pgs' # extracted chromosome 22 SNPs from t2d prscs weights file
+sum_stats_file = 't2d_prscs_EUR.pgs' # extracted chromosome 22 SNPs from T2D PRS-cs weights file
 target_sumstats_file = 'tr_val.summaries' 
 
 LDblocks="ASN.hg19"
 outfile=paste0("Output_PTLPRS") 
 
 
-lr_list = c(1,10,100,1000) #default
+lr_list = c(1,10,100,1000)
 iter = 100
 
 ps=TRUE
 subprop=0.9
 
-patience = 3 #default = 3
+patience = 3
 trace=TRUE
 
 target_sumstats_train_file = NULL 
 target_sumstats_val_file = NULL 
 
 system.time({
-    out.beta = PTL_PRS_bwes(ref_file, sum_stats_file, target_sumstats_file, subprop, ref_file_ps, LDblocks, outfile, num_cores, target_sumstats_train_file, target_sumstats_val_file, ps, pseudo_test, random_seed, lr_list, iter, patience, trace)
+    out.beta = PTL_PRS_train(ref_file, sum_stats_file, target_sumstats_file, subprop, ref_file_ps, LDblocks, outfile, num_cores, target_sumstats_train_file, target_sumstats_val_file, ps, pseudo_test, random_seed, lr_list, iter, patience, trace)
 })
 
 ### TEST ###
+## for chromosome-wise calculation:
+# plink_file = '1kg_SAS_all_chr'
+# by_chr = TRUE
+
 plink_file = '1kg_SAS_all'
 by_chr = FALSE
 
@@ -149,7 +159,7 @@ Ytype='B'
 Covar_name="sex"
 
 system.time({
-TL_PRS_test(plink_file, by_chr, ped_test_file, outfile, Ytype, Covar_name,Y_name)
+PTL_PRS_test(plink_file, by_chr, ped_test_file, outfile, Ytype, Covar_name,Y_name)
 })
 ```
 

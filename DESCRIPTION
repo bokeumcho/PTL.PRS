@@ -7,7 +7,6 @@ Authors@R:
     person("Bokeum", "Cho", , "bokeum1810@snu.ac.kr", role = c("aut", "cre"))
 Description: Use transfer learning to fine-tune the baseline PRS model trained with GWAS summary statistics from a larger sample size source group to a smaller target group, using summary statistics only.
 License: GPL-3
-Includes: Rcpp
 Encoding: UTF-8
 Imports: 
     Rcpp,

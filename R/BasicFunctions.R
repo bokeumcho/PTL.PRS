@@ -6,6 +6,8 @@ library(parallel)
 
 #### COMMON for TL-PRS & PTL-PRS ####
 readSomeSnp <- function(snpList, sampleList=NULL, BedFileReader) { 
+    #' Read genotypes of provided SNPs and samples
+    #' @export
     # Preallocate a list to store each SNP's data
         geno_list <- vector("list", length(snpList))
 
@@ -36,7 +38,7 @@ readSomeSnp <- function(snpList, sampleList=NULL, BedFileReader) {
     return(geno_df1) # n*p
 }
 
-TL_PRS_test <- function(plink_file, by_chr, ped_test_file, outfile, Ytype, Covar_name,Y_name){
+PTL_PRS_test <- function(plink_file, by_chr, ped_test_file, outfile, Ytype, Covar_name,Y_name){
     #' Test performance of PTL-PRS
     #' @export
     #' 
@@ -45,9 +47,9 @@ TL_PRS_test <- function(plink_file, by_chr, ped_test_file, outfile, Ytype, Covar
     best.beta = fread(paste0(outfile,"_best.beta.txt")) #out.beta$best.beta 
     best.param = fread(paste0(outfile,"_best.param.txt")) #out.beta$best.param 
 
-    BedFileReaders <- BedFileReader_prep(plink_file)
-
     if (by_chr) {
+    BedFileReaders <- BedFileReader_prep(plink_file, by_chr, unique(best.beta$CHR))
+
     ## by CHRs -- function!!
     PRS.all <- matrix(0, nrow=dim(ped_test)[1], ncol=2) 
 
@@ -69,6 +71,8 @@ TL_PRS_test <- function(plink_file, by_chr, ped_test_file, outfile, Ytype, Covar
         gc()
     }
     } else {
+        BedFileReaders <- BedFileReader_prep(plink_file, by_chr)
+
         PRS.all <- Calculate_PRS_direct(
             ped_test, 
             best.beta[,1:3], 
@@ -96,13 +100,13 @@ TL_PRS_test <- function(plink_file, by_chr, ped_test_file, outfile, Ytype, Covar
   gc()
 }
 
-BedFileReader_prep <- function(plink_file, by_chr=FALSE){
+BedFileReader_prep <- function(plink_file, by_chr=FALSE, chr_list=NULL){
 if (by_chr){
     # Create a list to store BedFileReader objects
     BedFileReaders <- list()
 
     # Loop through chromosomes
-    for (chr in 1:22) {
+    for (chr in chr_list) {
     cat(sprintf("Processing chromosome: %d\n", chr))
     
     tic <- Sys.time() # Start timing
@@ -309,7 +313,7 @@ Calculate_PRS_direct <- function(ped_val, beta.info, beta.all, BedFileReader_new
     cat('calculate PRS for CHR',beta.info$CHR[1],'\n')
 
     # allele-flipping
-    plink_bim = fread(paste0(plink_file, beta.info$CHR[1], '_v3.bim'))
+    plink_bim = fread(paste0(plink_file, beta.info$CHR[1], '.bim')) # plink prefix + chrom number + .bim
    } else {
     plink_bim = fread(paste0(plink_file, '.bim'))
    }

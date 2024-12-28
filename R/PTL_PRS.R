@@ -310,10 +310,11 @@ pseudo_split <- function (target_sumstats, subprop, ref_file_ps, tempfile, rando
     sub_mat <- cbind(snp_info, subrhos, rep(subprop * n, dim(snp_info)[1])); colnames(sub_mat)=c('SNP','A1','cor','N')
     rest_mat <- cbind(snp_info, restrhos, rep((1-subprop) * n, dim(snp_info)[1])); colnames(rest_mat)=c('SNP','A1','cor','N')
   
+    cat(paste0('Generated pseudo summary statistics with ',dim(sub_mat)[1], ' SNPs. \n'))
    return (list(sub_mat, rest_mat))
 }
 
-PTL_PRS_bwes<-function(ref_file,sum_stats_file,target_sumstats_file, subprop, ref_file_ps, LDblocks="EUR.hg19",outfile,num_cores=1,target_sumstats_train_file=NULL, target_sumstats_val_file=NULL, ps, pseudo_test, random_seed, lr_list, iter, patience, trace=FALSE){
+PTL_PRS_train<-function(ref_file,sum_stats_file,target_sumstats_file, subprop, ref_file_ps, LDblocks="EUR.hg19",outfile,num_cores=1,target_sumstats_train_file=NULL, target_sumstats_val_file=NULL, ps, pseudo_test, random_seed, lr_list, iter, patience, trace=FALSE){
 	#' Run PTL-PRS
   #' 
   #' @param ref_file Prefix of PLINK file of the reference panel data in the target population.
@@ -365,6 +366,8 @@ PTL_PRS_bwes<-function(ref_file,sum_stats_file,target_sumstats_file, subprop, re
 	# write.table(sum_stats, file=sum_stats_file,col.names=T,row.names=F,quote=F)
 
 if (ps){
+  cat("=====================================================================================\n")
+  cat("Step 0: Generating pseudo summary statistics... \n")
   ## pseudo summ generation
   sum_stats_target <- fread(target_sumstats_file)
   sum_stats_target <- merge(sum_stats,sum_stats_target,by="SNP", sort=F)  
@@ -388,6 +391,8 @@ if (ps){
   write.table(target_sumstats_train, file=paste0(tempfile, '_target.train.summaries'), row.names=F,quote=F,col.names=T)
   write.table(target_sumstats_val, file=paste0(tempfile, '_target.val.summaries'), row.names=F,quote=F,col.names=T)
   
+  cat("Psuedo summary statistics written to files. \n")
+
   rm(target_sumstats)
 } else {
   target_sumstats_train <- fread(target_sumstats_train_file)
@@ -428,17 +433,24 @@ for(group in c('train','val')){
   }
 
   # block-wise gradient descent
+  cat("=====================================================================================\n")
+  cat("Step 1: Running block-wise gradient descent... \n")
 	results=PRStr_calculation_pv_es(sum_stats_target_train, ref_file, LDblocks, num_cores, temp.file=paste0(tempfile,"_step1"), lr_list, iter, sum_stats_target_val, patience,trace)
-  
+  cat("Gradient descent completed. \n")
+
 	write.table(as.data.frame(results[[1]]),file=paste0(tempfile,"_beta.list.txt"),row.names=F,quote=F,col.names=T)
   # write.table(as.data.frame(results[[2]]),file=paste0(tempfile,"_betaRho.txt"),row.names=F,quote=F,col.names=F)
 	# write.table(as.data.frame(results[[3]]),file=paste0(tempfile,"_betaG.txt"),row.names=F,quote=F,col.names=T)
 	
+  cat("=====================================================================================\n")
+  cat("Step 2: Running hyperparameter tuning... \n")
   out1 = PRS_tuning_pv_byLR(results[[1]], results[[2]], results[[3]], lr_list)
+  cat("Hyperparameter tuning completed. \n")
 
 	write.table(out1$best.beta,file=paste0(tempfile,"_best.beta.txt"),row.names=F,quote=F,col.names=T)
 	write.table(out1$best.param,file=paste0(tempfile,"_best.param.txt"),row.names=F,quote=F,col.names=T)
   write.table(out1$R2.list,file=paste0(tempfile,"_R2_list.txt"),row.names=F,quote=F,col.names=T)
+  cat("Results have been successfully written with the prefix:", tempfile, "\n")
 
   return(out1)
 }

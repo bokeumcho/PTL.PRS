@@ -1,16 +1,16 @@
 
-# test_that('Test_PTLPRS', {
-# plink_file = 'ExampleData_TL-PRS/ExampleData_1000G_African_test'
-# by_chr = FALSE
+test_that('Test_PTLPRS', {
+plink_file = 'ExampleData_TL-PRS/ExampleData_1000G_African_test'
 
-# ped_test_file='ExampleData_TL-PRS/ped_test.txt'
+by_chr = FALSE
 
-# Y_name='Y'
-# Ytype="C"
-# Covar_name="" 
+ped_test_file='ExampleData_TL-PRS/ped_test.txt'
 
-# best.beta = fread("Output_test_best.beta.txt")
-# best.param = fread("Output_test_best.param.txt")
+Y_name='Y'
+Ytype="C"
+Covar_name="" 
 
-# TL_PRS_test(plink_file, by_chr, ped_test_file, best.beta, best.param, Ytype, Covar_name,Y_name)
-# })
+outfile=paste0("Output_test")
+
+PTL_PRS_test(plink_file, by_chr, ped_test_file, outfile, Ytype, Covar_name,Y_name)
+})

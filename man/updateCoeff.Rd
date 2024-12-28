@@ -12,11 +12,12 @@ updateCoeff(
   maxiter,
   betaSD,
   sum_stats_target_val_block,
+  patience,
   trace
 )
 }
 \arguments{
-\item{beta.all}{A list of two elements: betas to update for each LD block (betatemp), and their gradients (gy-GG2\%*\%betatemp)}
+\item{beta.all}{A list of two elements: baseline betas to update for each LD block (betatemp), and their gradients (gy-GG2\%*\%betatemp)}
 
 \item{GG2}{A covariance matrix of reference genotypes (p'*p')}
 
