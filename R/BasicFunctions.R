@@ -754,6 +754,7 @@ PRS_tuning_pv_byLR <- function(beta.byL, betaRho.byL, betaG.byL, lr_list){
   out.final=list()
   out.final$best.param=lr_list[flag] / dim(beta.byL)[1]
   out.final$best.beta = as.data.frame(beta.byL)[,c(1:3,9,9+flag)] #SNP, CHR, A1, Beta2, best.beta
+  colnames(out.final$best.beta)[4:5] = c('base.beta', 'best.beta')
   out.final$R2.list = R2.byL
 
   return(out.final)

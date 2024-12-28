@@ -77,29 +77,47 @@ for the latest development version. Or you can clone the latest development vers
     Number of cores to be used for parallel computation during training. Defaults to 1.
 
 10. `patience` (optional): 
-    Number of times to tolerate a decrease in validation pseudo-R without early stopping.
+    Number of times to tolerate a decrease in validation pseudo-R without early stopping. Defaults to 3.
 
 11. `trace` (optional): 
-    Logical; if TRUE, print the stopped iteration.
+    Logical; if TRUE, print the stopped iteration for each LD block. Defaults to FALSE.
 
 ### Input Arguments for PTL_PRS_test
-1. `plink_file`
-2. `by_chr`
-3. `ped_test_file`
+1. `ped_test_file`:
+   The file path to the ped file for test samples, which contains information such as FID, IID, phenotype (Y), sample indices from the .fam file of `plink_file` (fam_idx), and covariate columns if needed. Note that the file only requires samples for test.
 
-`outfile`, `Ytype`, `Covar_name`,`Y_name` are the same as PTL_
+2. `by_chr` (optional):
+   Logical; if TRUE, read and compute matrix by chromosomees to avoid memory burden. Defaults to FALSE.
+
+3. `plink_file`:
+   The prefix of the PLINK file containing the test data. There is no need to create a separate PLINK file for test samples, as the package automatically reads only the samples specified in `ped_test_file`. 
+
+   **Note:** If `by_chr` is set to TRUE, ensure that your PLINK files are split by chromosomes and exclude the chromosome number from the prefix. For example, if the full prefix for chromosome 1 is ukb_imp_chr1, use ukb_imp_chr as the input. The package will append the appropriate chromosome numbers during processing automatically.
+
+`outfile`, `Ytype`, `Covar_name`,`Y_name` are the same as **PTL_PRS_train**
 
 ## Outputs of PTL_PRS
-1. `best.param`: 
-   The best learning rate determined by the validation.
-
-2. `best.beta`: 
+1. `best.beta`: 
    A list of the baseline and best beta coefficients found during validation. It contains the following columns: `SNP`, `CHR`, `A1`, `base.beta`, `best.beta`. 
+
+2. `best.param`: 
+   The best learning rate determined by the validation.
 
 3. `R2.list`: 
    A list of R-squared values computed during the validation step.
 
-   
+4. `beta.list`: 
+   An intermediate output file containing the beta coefficients updated for all learning rates.
+
+5. `target.train.summaries`:
+   Pseudo summary statistics generated for train samples via `pseudo_split` function. (Only when `ps` is TRUE)
+
+6. `target.val.summaries`:
+   Pseudo summary statistics generated for validation samples via `pseudo_split` function. (Only when `ps` is TRUE)
+
+7. `target.test.summaries`:
+   Pseudo summary statistics generated for test samples via `pseudo_split` function. (Only when `ps` and `pseudo_test` are both TRUE)
+
 ## Example R script
 You can download the files in Dropbox folder here (https://www.dropbox.com/scl/fo/xsm783tn8mt7h0vovhjwa/ABSam-2r6i-f3P1ED_rTRuM?rlkey=7zgkyrvnzu8rc78tnuolmmtcw&st=s5amjvco&dl=0) to run the example R script.
 

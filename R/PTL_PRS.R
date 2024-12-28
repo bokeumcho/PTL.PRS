@@ -244,6 +244,7 @@ PRStr_calculation_pv_es<-function(sum_stats_target_train, ref_file, LDblocks, nu
 
   beta.byL <- do.call("rbind", lapply(results.list, function(x) x[[1]]))
   colnames(beta.byL)[1:3]=c("SNP","CHR","A1")
+  colnames(beta.byL)[9]="base.beta"
 
   betaRho.byL <- Reduce("+", lapply(results.list, function(x) x[[2]])) # scalar
   betaG.byL <- Reduce("+", lapply(results.list, function(x) x[[3]])) # 1*n
