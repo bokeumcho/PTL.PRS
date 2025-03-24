@@ -1,0 +1,23 @@
+Package: PTL.PRS.c
+Type: Package
+Title: Transfer learning of Polygenic Risk Score with Pseudo-validation
+Version: 1.0.0
+Date: 2025-03-06
+Authors@R: 
+    person("Bokeum", "Cho", , "bokeum1810@snu.ac.kr", role = c("aut", "cre"))
+Description: Use transfer learning to fine-tune the baseline PRS model trained with GWAS summary statistics from a larger sample size source group to a smaller target group, using summary statistics only.
+License: GPL-3
+Encoding: UTF-8
+Imports: 
+    Rcpp,
+    data.table,
+    ROCR,
+    lassosum,
+    parallel
+LinkingTo: Rcpp, RcppParallel
+SystemRequirements: GNU make
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.2
+Suggests: 
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
