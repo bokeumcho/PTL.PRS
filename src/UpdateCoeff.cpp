@@ -3,6 +3,8 @@
 #include <vector>
 #include <string>
 #include <sstream>
+#include <sys/resource.h>
+#include <iostream>
 
 using namespace Rcpp;
 using namespace RcppParallel;
@@ -19,7 +21,7 @@ struct CoeffUpdateResult {
 };
 
 // ----------------------------------------------------------------------
-// Modified: Thread-safe internal update function using RMatrix and RVector,
+// Thread-safe internal update function using RMatrix and RVector,
 //           and returning plain C++ containers (no R API objects).
 // ----------------------------------------------------------------------
 CoeffUpdateResult updateCoeff(const RMatrix<double>& beta_all,
@@ -50,7 +52,7 @@ CoeffUpdateResult updateCoeff(const RMatrix<double>& beta_all,
   int p = betatemp.size();
   
   int nrows = geno_ref.nrow();
-  int ncols = geno_ref.ncol();  // should equal p
+  // int ncols = geno_ref.ncol();  // should equal p
 
   std::vector<double> betatemp1(p);
   double R_num = 0.0;
@@ -71,26 +73,7 @@ CoeffUpdateResult updateCoeff(const RMatrix<double>& beta_all,
       R_num += betatemp1[j] * sum_stats_target_val_cor[j];
     }
 
-    // std::vector<double> betatemp1(p);
-    // for (int i = 0; i < p; i++) {
-    //   betatemp1[i] = betatemp[i] / betaSD[i];
-    // }
-  
-    // int pp = sum_stats_target_val_cor.size();
-
-    // if(ncols != p || p != pp) {
-    //   Rcpp::stop("Dimension mismatch: geno_ref.ncol() (", ncols, 
-    //             "), number of coefficients (p) (", p, 
-    //             ") and sum_stats_target_val_cor.size() (", pp, 
-    //             ") must be equal.");
-    // }
-
-    // double R_num = 0.0;
-    // for (int i = 0; i < p; i++) {
-    //   R_num += betatemp1[i] * sum_stats_target_val_cor[i];
-    // }
-
-    PRS.assign(nrows, 0.0);
+    std::fill(PRS.begin(), PRS.end(), 0.0);
 
     double sumPRS2 = 0.0;
     for (int i = 0; i < nrows; i++) {
@@ -105,21 +88,6 @@ CoeffUpdateResult updateCoeff(const RMatrix<double>& beta_all,
     // Compute current R^2 while avoiding division by zero.
     double curr_R2 = (R_num * R_num) / (sumPRS2 + 1e-12);
 
-    // std::vector<double> PRS(nrows, 0.0);
-    // for (int i = 0; i < nrows; i++) {
-    //   double sum = 0.0;
-    //   for (int j = 0; j < ncols; j++) {
-    //     sum += geno_ref(i, j) * betatemp1[j];
-    //   }
-    //   PRS[i] = sum;
-    // }
-    
-    // double sumPRS2 = 0.0;
-    // for (int i = 0; i < nrows; i++) {
-    //   sumPRS2 += PRS[i] * PRS[i];
-    // }
-    // double curr_R2 = (R_num * R_num) / (sumPRS2 + 1e-12); // avoid division by zero
-    
     if (curr_R2 < prev_R2) {
       cnt++;
     }
@@ -128,32 +96,10 @@ CoeffUpdateResult updateCoeff(const RMatrix<double>& beta_all,
     k++;
   }
   
-  // Final re-scaling of betas.
-  // std::vector<double> betatemp1_final(p);
-  // for (int i = 0; i < p; i++) {
-  //   betatemp1_final[i] = betatemp[i] / betaSD[i];
-  // }
-  
-  // double R_num_final = 0.0;
-  // for (int i = 0; i < p; i++) {
-  //   R_num_final += betatemp1_final[i] * sum_stats_target_val_cor[i];
-  // }
-  
-  // int nrows = geno_ref.nrow();
-  // int ncols = geno_ref.ncol();
-  // std::vector<double> PRS_final(nrows, 0.0);
-  // for (int i = 0; i < nrows; i++) {
-  //   double sum = 0.0;
-  //   for (int j = 0; j < ncols; j++) {
-  //     sum += geno_ref(i, j) * betatemp1_final[j];
-  //   }
-  //   PRS_final[i] = sum;
-  // }
-  
   CoeffUpdateResult res;
-  res.betatemp1 = betatemp1;
+  res.betatemp1 = std::move(betatemp1);
   res.R_num = R_num;
-  res.PRS = PRS;
+  res.PRS = std::move(PRS);
   
   if(trace) {
     // Note: std::cout is thread-safe for simple logging.
@@ -161,7 +107,16 @@ CoeffUpdateResult updateCoeff(const RMatrix<double>& beta_all,
     oss << "stopped iteration: " << k << std::endl;
     Rcpp::Rcout << oss.str();
   }
-  
+
+  // u0.clear();
+  // u0.shrink_to_fit();
+  // betatemp.clear();
+  // betatemp.shrink_to_fit();
+  // geno_ref.clear();
+  // geno_ref.shrink_to_fit();
+  // beta_all.clear();
+  // beta_all.shrink_to_fit();
+
   return res;
 }
 
@@ -175,7 +130,7 @@ struct BlockResult {
 };
 
 // ----------------------------------------------------------------------
-// Modified: BlockData uses RcppParallel containers for thread safety.
+// BlockData uses RcppParallel containers for thread safety.
 // ----------------------------------------------------------------------
 struct BlockData {
   RMatrix<double> beta_all;
@@ -205,37 +160,41 @@ struct BlockData {
       Beta2(as<NumericVector>(as<List>(block["geno_info2"])["Beta2"]))
   { }
 };
+// struct BlockData {
+//   NumericMatrix beta_all;
+//   NumericMatrix GG2;
+//   NumericMatrix geno_ref;
+//   NumericVector lr_list;
+//   int maxiter;
+//   NumericVector sum_stats_target_val_cor;
+//   int patience;
+//   bool trace;
+//   NumericVector sd;
+//   List geno_info2;
+//   NumericVector Beta2;
+
+//   // Constructor: simply assign the inputs without converting their data types.
+//   BlockData(const List& block)
+//     : beta_all(block["beta_all"]),
+//       GG2(block["GG2"]),
+//       geno_ref(block["geno_ref"]),
+//       lr_list(block["lr_list"]),
+//       maxiter(as<int>(block["maxiter"])),
+//       sum_stats_target_val_cor(block["sum_stats_target_val_cor"]),
+//       patience(as<int>(block["patience"])),
+//       trace(as<bool>(block["trace"])),
+//       geno_info2(block["geno_info2"]),
+//       sd(block["geno_info2"]["sd"]),
+//       Beta2(block["geno_info2"]["Beta2"])
+//   { }
+// };
 
 BlockData convertBlockData(List block) {
   return BlockData(block);
 }
 
-// // ----------------------------------------------------------------------
-// // Conversion function: convert an Rcpp List block to a BlockData struct.
-// // ----------------------------------------------------------------------
-// BlockData convertBlockData(List block) {
-//   BlockData bd;
-//   bd.beta_all = RMatrix<double>( as<NumericMatrix>(block["beta_all"]) ); // **Modified**
-//   bd.GG2 = RMatrix<double>( as<NumericMatrix>(block["GG2"]) );           // **Modified**
-//   bd.geno_ref = RMatrix<double>( as<NumericMatrix>(block["geno_ref"]) );   // **Modified**
-
-//   NumericVector lr_vec = as<NumericVector>(block["lr_list"]);
-//   bd.lr_list = RVector<double>(lr_vec);                                  // **Modified**
-
-//   bd.maxiter = as<int>(block["maxiter"]);
-//   bd.sum_stats_target_val_cor = RVector<double>( as<NumericVector>(block["sum_stats_target_val_cor"]) ); // **Modified**
-//   bd.patience = as<int>(block["patience"]);
-//   bd.trace = as<bool>(block["trace"]);
-
-//   bd.geno_info2 = as<List>(block["geno_info2"]);                         // kept as List
-//   bd.sd = RVector<double>( as<NumericVector>(bd.geno_info2["sd"]) );       // **Modified**
-//   bd.Beta2 = RVector<double>( as<NumericVector>(bd.geno_info2["Beta2"]) ); // **Modified**
-  
-//   return bd;
-// }
-
 // ----------------------------------------------------------------------
-// Modified: Parallel worker that uses only thread-safe, non-R API types.
+// Parallel worker that uses only thread-safe, non-R API types.
 // ----------------------------------------------------------------------
 struct BlockWorker : public Worker {
   const std::vector<BlockData>& blocks;
@@ -249,12 +208,14 @@ struct BlockWorker : public Worker {
       const BlockData &bd = blocks[i];
       BlockResult blockResult;
       
-      // **Modified:** Copy Beta2 (RVector) into a plain std::vector
-      std::vector<double> baseBeta(bd.Beta2.size());
-      for (std::size_t j = 0; j < bd.Beta2.size(); j++) {
-        baseBeta[j] = bd.Beta2[j];
-      }
-      
+      // // **Modified:** Copy Beta2 (RVector) into a plain std::vector
+      // std::vector<double> baseBeta(bd.Beta2.size());
+      // for (std::size_t j = 0; j < bd.Beta2.size(); j++) {
+      //   baseBeta[j] = bd.Beta2[j];
+      // }
+
+      std::vector<double> baseBeta(bd.Beta2.begin(), bd.Beta2.end());      
+
       // Compute beta_rho_base = sum(baseBeta * sum_stats_target_val_cor)
       double beta_rho_base = 0.0;
       for (std::size_t j = 0; j < baseBeta.size(); j++) {
@@ -274,9 +235,10 @@ struct BlockWorker : public Worker {
       }
       
       // Store the base results.
-      blockResult.extra_beta.push_back(baseBeta);
+      // Move the computed base results into blockResult to avoid copying.
+      blockResult.extra_beta.push_back(std::move(baseBeta));
       blockResult.beta_rho.push_back(beta_rho_base);
-      blockResult.beta_g.push_back(beta_g_base);
+      blockResult.beta_g.push_back(std::move(beta_g_base));
       
       // Loop over learning rates.
       for (std::size_t k = 0; k < bd.lr_list.size(); k++) {
@@ -287,15 +249,26 @@ struct BlockWorker : public Worker {
                                               cur_lr, bd.maxiter, bd.sd,
                                               bd.sum_stats_target_val_cor, bd.patience,
                                               bd.trace);
-        blockResult.extra_beta.push_back(res.betatemp1);
+        blockResult.extra_beta.push_back(std::move(res.betatemp1));
         blockResult.beta_rho.push_back(res.R_num);
-        blockResult.beta_g.push_back(res.PRS);
+        blockResult.beta_g.push_back(std::move(res.PRS));
       }
       
-      local_results[i] = blockResult;
+      // Move blockResult into local_results to avoid an extra copy.
+      local_results[i] = std::move(blockResult);
     }
   }
 };
+
+void printMemoryUsage(const std::string& label) {
+  struct rusage usage;
+  if(getrusage(RUSAGE_SELF, &usage) == 0) {
+    std::cout << label << " memory usage: " 
+              << usage.ru_maxrss << " kilobytes" << std::endl;
+  } else {
+    std::cerr << "Failed to get memory usage" << std::endl;
+  }
+}
 
 // ----------------------------------------------------------------------
 // Exported Function: Pre-convert input blocks, run parallel worker,
@@ -312,13 +285,16 @@ List block_calculation_parallel(List blocks) {
     blockDataVec.push_back(convertBlockData(blk));
   }
   
+  printMemoryUsage("After converting blocks");
+
   // Prepare a vector to hold results (one BlockResult per block)
   std::vector<BlockResult> local_results(n);
   
   // Run the parallel worker.
   BlockWorker worker(blockDataVec, local_results);
   parallelFor(0, n, worker);
-  
+  printMemoryUsage("After parallel worker");
+
   // Now, outside the parallel region, convert the plain C++ results into R objects.
   List out(n);
   for (int i = 0; i < n; i++) {
@@ -345,5 +321,8 @@ List block_calculation_parallel(List blocks) {
     out[i] = blockOut;
   }
   
+  printMemoryUsage("Before returning out");
+
   return out;
 }
+

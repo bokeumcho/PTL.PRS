@@ -335,6 +335,165 @@ PRStr_calculation_pv_es<-function(sum_stats_target_train, ref_file, LDblocks, nu
   return(list(beta.byL, betaRho.byL, betaG.byL))
 }
 
+# PRStr_calculation_pv_es <- function(sum_stats_target_train, ref_file, LDblocks, num_cores = 1,
+#                                       temp.file, lr_list, maxiter, sum_stats_target_val,
+#                                       patience, trace) {
+#   library(pryr)
+  
+#   cat("Memory at start:", mem_used(), "\n")
+  
+#   possible.LDblocks <- c("EUR.hg19", "AFR.hg19", "ASN.hg19", 
+#                          "EUR.hg38", "AFR.hg38", "ASN.hg38") 
+#   if(!is.null(LDblocks)) {
+#     if(is.character(LDblocks) && length(LDblocks) == 1) {
+#       if(LDblocks %in% possible.LDblocks) {
+#         LDblocks <- data.table::fread(system.file(paste0("data/Berisa.",  LDblocks, ".bed"),
+#                                                    package = "lassosum"), header = TRUE)
+#       } else {
+#         stop(paste("I cannot recognize this LDblock. Specify one of", 
+#                    paste(possible.LDblocks, collapse = ", ")))
+#       }
+#     }
+#     if(is.factor(LDblocks)) LDblocks <- as.integer(LDblocks)
+#     if(is.vector(LDblocks)) stopifnot(length(LDblocks) == length(cor)) else 
+#       if(is.data.frame(LDblocks) || is.data.table(LDblocks)) {
+#         LDblocks <- as.data.frame(LDblocks)
+#         stopifnot(ncol(LDblocks) == 3)
+#         stopifnot(all(LDblocks[, 3] >= LDblocks[, 2]))
+#         LDblocks[, 1] <- as.character(sub("^chr", "", LDblocks[, 1], ignore.case = TRUE))
+#       }
+#   } else {
+#     stop(paste0("LDblocks must be specified. Specify one of ", 
+#                 paste(possible.LDblocks, collapse = ", "), 
+#                 ". Alternatively, give an integer vector defining the blocks, ", 
+#                 "or a .bed file with three columns read as a data.frame."))
+#   }
+  
+#   ref.bim <- data.table::fread(paste0(ref_file, ".bim"))
+#   ref.bim$V1 <- as.character(sub("^chr", "", ref.bim$V1, ignore.case = TRUE))
+#   ref.bim <- ref.bim[ref.bim$V1 %in% 1:22, ]
+#   ref.bim$order <- 1:nrow(ref.bim)
+  
+#   bim_sum_stats <- merge(ref.bim, sum_stats_target_train, by.x = "V2", by.y = "SNP", sort = FALSE)
+#   bim_sum_stats <- bim_sum_stats[order(bim_sum_stats$order), ]
+#   bim_sum_stats <- bim_sum_stats[!duplicated(bim_sum_stats$V2), ]
+  
+#   bim_sum_stats$Beta2 <- NA
+#   flag1 <- which(bim_sum_stats$V5 == bim_sum_stats$A1)
+#   if (length(flag1) > 0) {
+#     bim_sum_stats$Beta2[flag1] <- bim_sum_stats$Beta[flag1]
+#   }
+#   flag2 <- which(bim_sum_stats$V6 == bim_sum_stats$A1)
+#   if (length(flag2) > 0) {
+#     bim_sum_stats$Beta2[flag2] <- -bim_sum_stats$Beta[flag2]
+#     bim_sum_stats$cor[flag2] <- -bim_sum_stats$cor[flag2]
+#   }
+  
+#   bim_sum_stats <- bim_sum_stats[which(!is.na(bim_sum_stats$Beta2)), c("V2", "V1", "V5", "V6", "order", "Beta2", "cor")]
+  
+#   bim_sum_stats_val <- merge(ref.bim, sum_stats_target_val, by.x = "V2", by.y = "SNP", sort = FALSE)
+#   bim_sum_stats_val <- bim_sum_stats_val[order(bim_sum_stats_val$order), ]
+#   bim_sum_stats_val <- bim_sum_stats_val[!duplicated(bim_sum_stats_val$V2), ]
+#   flag3 <- which(bim_sum_stats_val$V6 == bim_sum_stats_val$A1)
+#   if (length(flag3) > 0) {
+#     bim_sum_stats_val$cor[flag3] <- -bim_sum_stats_val$cor[flag3]
+#   }
+  
+#   bim_sum_stats_val <- bim_sum_stats_val[, c("V2", "V5", "cor", "N")]
+#   colnames(bim_sum_stats_val)[1:2] <- c("SNP", "A1")
+  
+#   ref.extract <- rep(FALSE, nrow(ref.bim))
+#   ref.extract[bim_sum_stats$order] <- TRUE
+  
+#   if(!is.null(LDblocks)) {
+#     LDblocks2 <- splitgenome2(CHR = ref.bim$V1[ref.extract], 
+#                               POS = ref.bim$V4[ref.extract],
+#                               ref.CHR = LDblocks[, 1], 
+#                               ref.breaks = LDblocks[, 3])
+#   }
+  
+#   BedFileReader_ref <- new(BedFileReader, paste0(ref_file, ".fam"),
+#                              paste0(ref_file, ".bim"), paste0(ref_file, ".bed"))
+#   result <- try(BedFileReader_ref$snp_index_func(), silent = TRUE)
+  
+#   unique_blocks <- unique(LDblocks2[[1]])
+#   blocks <- vector("list", length(unique_blocks))
+#   nsnp <- nrow(bim_sum_stats)
+  
+#   process_block <- function(cur_block) {
+#     cor_df <- bim_sum_stats[LDblocks2[[1]] == cur_block, , drop = FALSE]
+#     Gtemp <- try(BedFileReader_ref$readSomeSnp(cor_df$V2, sampleList = integer(0)), silent = TRUE)
+#     if (inherits(Gtemp, "try-error")) {
+#       cat("Error while reading Bedfile in block", cur_block, "\n")
+#       return(NULL)
+#     }
+#     Gtemp <- do.call(cbind, Gtemp)
+#     # cat("read Gtemp block", cur_block, "\n")
+#     GG <- cor(as.matrix(Gtemp))
+#     geno_info <- as.data.frame(cor_df[, c("V2", "V5"), drop = FALSE])
+#     colnames(geno_info) <- c("SNP", "A1")
+#     geno_info$mean <- colMeans(as.matrix(Gtemp), na.rm = TRUE)
+#     geno_info$maf <- geno_info$mean / 2
+#     geno_info$sd <- sqrt(2 * geno_info$maf * (1 - geno_info$maf))
+    
+#     nonzero_sd <- geno_info$sd != 0
+#     if (!all(nonzero_sd)) {
+#       geno_info <- geno_info[nonzero_sd, , drop = FALSE]
+#       GG <- GG[nonzero_sd, nonzero_sd, drop = FALSE]
+#       Gtemp <- Gtemp[, nonzero_sd, drop = FALSE]
+#     }
+#     if (nrow(geno_info) == 0) return(NULL)
+    
+#     geno_info$order <- seq_len(nrow(geno_info))
+#     geno_info2 <- merge(cor_df[, c("V1", "V2", "V5", "Beta2", "cor")],
+#                         geno_info,
+#                         by.x = "V2", by.y = "SNP", sort = FALSE)
+#     GG2 <- as.matrix(GG[geno_info2$order, geno_info2$order])
+#     gy <- geno_info2$cor
+#     betatemp <- geno_info2$Beta2 * geno_info2$sd
+#     u0 <- gy - GG2 %*% betatemp
+#     beta.init <- cbind(u0, betatemp)
+    
+#     Gtemp3 <- scale(Gtemp)
+#     sum_stats_target_val_block <- sum_stats_target_val[sum_stats_target_val$SNP %in% geno_info2$V2, , drop = FALSE]
+    
+#     list(
+#       beta_all = beta.init,
+#       GG2 = GG2,
+#       geno_ref = Gtemp3,
+#       lr_list = lr_list / nsnp,
+#       maxiter = maxiter,
+#       sum_stats_target_val_cor = sum_stats_target_val_block$cor,
+#       patience = patience,
+#       trace = trace,
+#       geno_info2 = geno_info2
+#     )
+#   }
+  
+#   cat("Memory after processing blocks before mclapply:", mem_used(), "\n")
+#   blocks <- mclapply(unique_blocks, process_block, mc.cores = num_cores)
+#   cat("Memory after mclapply:", mem_used(), "\n")
+  
+#   results.list <- block_calculation_parallel(blocks)
+#   cat("Memory after RcppParallel part:", mem_used(), "\n")
+  
+#   beta.byL <- do.call(rbind, lapply(results.list, function(x) x[[1]]))
+#   cols_to_drop <- match(c("A1", "order"), colnames(beta.byL))
+#   beta.byL <- beta.byL[, -cols_to_drop, drop = FALSE]
+#   colnames(beta.byL)[1:3] <- c("SNP", "CHR", "A1")
+  
+#   betaRho.byL <- Reduce("+", lapply(results.list, function(x) x[[2]]))
+#   betaG.byL <- Reduce("+", lapply(results.list, function(x) as.numeric(unlist(x[[3]]))))
+#   if (is.null(dim(betaG.byL))) {
+#     betaG.byL <- matrix(betaG.byL, nrow = 1)
+#   }
+  
+#   gc()
+#   cat("Memory after gc():", mem_used(), "\n")
+  
+#   return(list(beta.byL, betaRho.byL, betaG.byL))
+# }
+
 pseudo_split <- function (target_sumstats, subprop, ref_file_ps, tempfile, random_seed=42) {
   #' Pseudo-split target summary statistics into train and validation set
   #' 

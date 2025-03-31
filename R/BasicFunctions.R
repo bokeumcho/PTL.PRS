@@ -4,41 +4,7 @@ library(Matrix)
 library(ROCR)
 library(parallel)
 
-#### COMMON for TL-PRS & PTL-PRS ####
-# readSomeSnp <- function(snpList, sampleList=NULL, BedFileReader) { 
-#     #' Read genotypes of provided SNPs and samples
-#     #' @export
-#     # Preallocate a list to store each SNP's data
-#         geno_list <- vector("list", length(snpList))
-
-#         for (i in seq_along(snpList)) {
-#             snpname <- snpList[i]
-#             oneSnp <- BedFileReader$readOneSnp(BedFileReader$findSnpIndex(snpname))
-            
-#             if (length(sampleList)!=0) {
-#                 valid_samples <- sampleList[sampleList != -1 & sampleList <= length(oneSnp)]
-#                 geno_list[[i]] <- oneSnp[valid_samples+1]
-#             }  else {
-#                 geno_list[[i]] <- oneSnp
-#             }
-#             # if(i%%1000==0) {cat(i,'\n')}
-#         }
-    
-#     # Convert the list to a dataframe
-#     geno_df <- do.call(rbind, geno_list)
-    
-#     # print('start mean imputation \n')
-    
-#     # handling NA (mean imputation)
-#     geno_df1 <- apply(geno_df, 1, function(x){
-#       #x[is.na(x)] <- mean(x, na.rm=TRUE)
-#       x[which(x==9)] <- mean(x[which(x!=9)])
-#       return(x)
-#     })
-#     return(geno_df1) # n*p
-# }
-
-PTL_PRS_test <- function(plink_file, by_chr, ped_test_file, outfile, Ytype, Covar_name,Y_name){
+PTL_PRS_test <- function(plink_file, by_chr, ped_test_file, outfile, Ytype, Covar_name,Y_name, plink_etc=''){
     #' Test performance of PTL-PRS
     #' @export
     #' 
@@ -48,7 +14,7 @@ PTL_PRS_test <- function(plink_file, by_chr, ped_test_file, outfile, Ytype, Cova
     best.param = fread(paste0(outfile,"_best.param.txt")) #out.beta$best.param 
 
     if (by_chr) {
-    BedFileReaders <- BedFileReader_prep(plink_file, by_chr, unique(best.beta$CHR))
+    BedFileReaders <- BedFileReader_prep(plink_file, by_chr, unique(best.beta$CHR), plink_etc)
 
     ## by CHRs -- function!!
     PRS.all <- matrix(0, nrow=dim(ped_test)[1], ncol=2) 
@@ -61,10 +27,10 @@ PTL_PRS_test <- function(plink_file, by_chr, ped_test_file, outfile, Ytype, Cova
             best.beta[best.beta$CHR==i,1:3], 
             best.beta[best.beta$CHR==i,4:5],
             BedFileReaders[[i]],
-            plink_file, by_chr
+            plink_file, by_chr, plink_etc
             )
 
-        print(dim(partial_PRS))
+        # print(dim(partial_PRS))
         # Add the partial result to the cumulative total
         PRS.all <- PRS.all + partial_PRS  # Adjust this operation based on how results are combined
         rm(partial_PRS)
@@ -95,7 +61,8 @@ PTL_PRS_test <- function(plink_file, by_chr, ped_test_file, outfile, Ytype, Cova
       model_R2 = as.numeric(logistic_result_generator(PRS.all[,2],ped_test,Covar_name,Y_name))
     }
 
-    cat("baseline R2: ", base_R2, "\n model R2: ", model_R2, '\n best lr: ', best.param[[1]]/dim(best.beta)[1]) #, '\n best iter: ', best.params[2],'\n'
+    cat("===Test Results===============================================================================\n")
+    cat("Baseline R2: ", base_R2, "\n Model R2: ", model_R2, '\n Best LR: ', best.param[[1]]/dim(best.beta)[1]) #, '\n best iter: ', best.params[2],'\n'
 
   gc()
 }
@@ -196,7 +163,138 @@ PTL_PRS_test_pseudo_list <- function(beta.list, sum_stats_target_test, sum_stats
     print(R2.byL)
 }
 
-BedFileReader_prep <- function(plink_file, by_chr=FALSE, chr_list=NULL){
+PRStr_main_check_pv<-function(ref_file, sum_stats_file,target_sumstats_file, subprop, ref_file_ps, LDblocks, target_sumstats_train_file, target_sumstats_val_file, ps){ # nolint
+	out1=0
+	if (file.exists(paste0(ref_file,".bim")) & file.exists(paste0(ref_file,".bed")) & file.exists(paste0(ref_file,".fam"))){} else {out1="The ref file doesn't exist!"}
+
+	if (!file.exists(sum_stats_file)){out1="The summary statistic file does not exist!"} else {
+		temp=fread(sum_stats_file,nrow=1)
+		if (ncol(temp)==4){
+			if (sum(colnames(temp) %in% c("V1","V2","V3","V4"))==4){} else{
+				if (sum(colnames(temp) %in% c("SNP","CHR","A1","Beta"))==4){} else {
+					out1="The structure of sum_stats_file is wrong!"
+				}
+			} 
+		} else {
+			if (ncol(temp)>4){
+				if (sum(colnames(temp) %in% c("SNP","CHR","A1","Beta"))<4){ 
+					out1="The structure of sum_stats_file is wrong!"
+				}
+			} else {
+				out1="The structure of sum_stats_file is wrong!"
+			}
+		} 
+	}
+
+    # need pseudo summ generation
+    if (!is.null(target_sumstats_file)){
+        if (!file.exists(target_sumstats_file)){out1="The target summary statistic file does not exist!"} else {
+            temp=fread(target_sumstats_file,nrow=1)
+            if (ncol(temp)==4 | ncol(temp)==5){
+                if ("cor" %in% colnames(temp)){
+                    if (sum(colnames(temp) %in% c("SNP", "A1", "cor", "N"))==4){} else{
+                        out1="The structure of target_sum_stats_file is wrong!"
+                    }                    
+                }
+                else {
+                    if (sum(colnames(temp) %in% c("SNP", "A1", "beta", "p", "N"))==5){} else{
+                        out1="The structure of target_sum_stats_file is wrong!"
+                    }            
+                }
+            } else {
+                if (ncol(temp)>5){
+                    if (sum(colnames(temp) %in% c("SNP", "A1", "cor", "N"))<4 | sum(colnames(temp) %in% c("SNP", "A1", "beta", "p", "N"))<5){ 
+                        out1="The structure of target_sum_stats_file is wrong!"
+                    }
+                } else {
+                    out1="The structure of target_sum_stats_file is wrong!"
+                }
+            }
+        }
+        if (!is.logical(ps)) {out1='ps should be boolean'}
+        if (ps) {
+            if (!is.numeric(subprop) | subprop<0 | subprop>1) {out1='subprop should be a number between 0 and 1'}
+            if (file.exists(paste0(ref_file_ps,".bim")) & file.exists(paste0(ref_file_ps,".bed")) & file.exists(paste0(ref_file_ps,".fam"))){} else {out1="The ref file for pseudo summary (ps) generation doesn't exist!"}
+        }
+    }
+
+    # no pseudo summ generation
+    else {
+        if (!file.exists(target_sumstats_train_file)){out1="The target summary statistic train file does not exist!"} else {
+        	temp=fread(target_sumstats_train_file,nrow=1)
+            if (ncol(temp)==4 | ncol(temp)==5){
+                if ("cor" %in% colnames(temp)){
+                    if (sum(colnames(temp) %in% c("SNP", "A1", "cor", "N"))==4){} else{
+                        out1="The structure of target_sumstats_train_file is wrong!"
+                    }                    
+                }
+                else {
+                    if (sum(colnames(temp) %in% c("SNP", "A1", "beta", "p", "N"))==5){} else{
+                        out1="The structure of target_sumstats_train_file is wrong!"
+                    }            
+                }
+            } else {
+                if (ncol(temp)>5){
+                    if (sum(colnames(temp) %in% c("SNP", "A1", "cor", "N"))<4 | sum(colnames(temp) %in% c("SNP", "A1", "beta", "p", "N"))<5){ 
+                        out1="The structure of target_sumstats_train_file is wrong!"
+                    }
+                } else {
+                    out1="The structure of target_sumstats_train_file is wrong!"
+                }
+            }
+        }
+
+        if (!file.exists(target_sumstats_val_file)){out1="The target summary statistic validation file does not exist!"} else {
+        	temp=fread(target_sumstats_val_file,nrow=1)
+            if (ncol(temp)==4 | ncol(temp)==5){
+                if ("cor" %in% colnames(temp)){
+                    if (sum(colnames(temp) %in% c("SNP", "A1", "cor", "N"))==4){} else{
+                        out1="The structure of target_sumstats_val_file is wrong!"
+                    }                    
+                }
+                else {
+                    if (sum(colnames(temp) %in% c("SNP", "A1", "beta", "p", "N"))==5){} else{
+                        out1="The structure of target_sumstats_val_file is wrong!"
+                    }            
+                }
+            } else {
+                if (ncol(temp)>5){
+                    if (sum(colnames(temp) %in% c("SNP", "A1", "cor", "N"))<4 | sum(colnames(temp) %in% c("SNP", "A1", "beta", "p", "N"))<5){ 
+                        out1="The structure of target_sumstats_val_file is wrong!"
+                    }
+                } else {
+                    out1="The structure of target_sumstats_val_file is wrong!"
+                }
+            }
+        }
+    }
+
+	if (!LDblocks %in% c("EUR.hg19", "AFR.hg19", "ASN.hg19")) {out1="The LDblocks name is wrong!"}
+    return(out1)
+}
+
+PRS_tuning_pv_byLR <- function(beta.byL, betaRho.byL, betaG.byL, lr_list, N_val){
+    # R2.byL <- c()
+    # for (idx in 1:length(betaRho.byL)){
+    #     R2 = betaRho.byL[idx]^2 / sum(betaG.byL[,idx]^2)
+    #     R2.byL <- c(R2.byL, R2)
+    # }
+
+    R2.byL = (N_val * betaRho.byL^2) / as.vector(betaG.byL %*% t(betaG.byL)) # colSums(betaG.byL^2)
+
+  flag=which(R2.byL==max(R2.byL))[1]
+#   print(R2.byL)
+#   print(flag)
+  out.final=list()
+  out.final$best.param=lr_list[flag] / dim(beta.byL)[1]
+  out.final$best.beta = as.data.frame(beta.byL)[,c(1:3,9,8+flag)] #SNP, CHR, A1, Beta2, best.beta
+  colnames(out.final$best.beta)[4:5] = c('base.beta', 'best.beta')
+  out.final$R2.list = R2.byL
+
+  return(out.final)
+}
+
+BedFileReader_prep <- function(plink_file, by_chr=FALSE, chr_list=NULL, plink_etc=''){
 if (by_chr){
     # Create a list to store BedFileReader objects
     BedFileReaders <- list()
@@ -208,8 +306,8 @@ if (by_chr){
     tic <- Sys.time() # Start timing
     
     # Assuming the file naming convention is consistent and correct
-    train_file <- paste0(plink_file, chr)
-    
+    train_file <- paste0(plink_file, chr, plink_etc)
+
     # Attempt to create a new BedFileReader object
     tryCatch({
         BedFileReaders[[chr]] <- new(BedFileReader, 
@@ -404,12 +502,12 @@ linear_result_generator<-function(PRS,ped,Covar_name,Y_name){
 
 # ped_val=ped_test; beta.info=best.beta[best.beta$CHR==i,1:3]; beta.all=best.beta[best.beta$CHR==i,4:5]; BedFileReader_new = BedFileReaders[[i]]
 # i=1; ped_val=ped; beta.all = beta.all[beta.info$CHR==i,]; beta.info = beta.info[beta.info$CHR==i,]
-Calculate_PRS_direct <- function(ped_val, beta.info, beta.all, BedFileReader_new, plink_file, by_chr){
+Calculate_PRS_direct <- function(ped_val, beta.info, beta.all, BedFileReader_new, plink_file, by_chr, plink_etc=''){
    if (by_chr) {
     cat('calculate PRS for CHR',beta.info$CHR[1],'\n')
 
     # allele-flipping
-    plink_bim = fread(paste0(plink_file, beta.info$CHR[1], '.bim')) # plink prefix + chrom number + .bim
+    plink_bim = fread(paste0(plink_file, beta.info$CHR[1], plink_etc, '.bim')) # plink prefix + chrom number + .bim
    } else {
     plink_bim = fread(paste0(plink_file, '.bim'))
    }
@@ -421,11 +519,40 @@ Calculate_PRS_direct <- function(ped_val, beta.info, beta.all, BedFileReader_new
     flag=bim_sum_stats[bim_sum_stats$V6==bim_sum_stats$A1,'order'] # flipped. when ref=ref_ps, length(flag2)=0
     if (length(flag)>0){  beta.all[flag[[1]],]=-beta.all[flag[[1]],]}
 
+
     # G_val = readSomeSnp(beta.info$SNP, ped_val$fam_idx, BedFileReader=BedFileReader_new) 
     G_val = BedFileReader_new$readSomeSnp(beta.info$SNP, ped_val$fam_idx) 
     G_val <- do.call(cbind, G_val)
 
     PRS.all = as.matrix(G_val) %*% as.matrix(beta.all)
+    return(PRS.all)
+}
+
+Calculate_PRS_direct <- function(ped_val, beta.info, beta.all, BedFileReader_new, plink_file, by_chr, plink_etc=''){
+   if (by_chr) {
+    cat('calculate PRS for CHR',beta.info$CHR[1],'\n')
+
+    # allele-flipping
+    plink_bim = fread(paste0(plink_file, beta.info$CHR[1], plink_etc, '.bim')) # plink prefix + chrom number + .bim
+   } else {
+    plink_bim = fread(paste0(plink_file, '.bim'))
+   }
+
+    beta.info$order = 1:nrow(beta.info)
+    bim_sum_stats=merge(plink_bim, beta.info,by.x="V2",by.y="SNP",sort=FALSE)
+    bim_sum_stats = bim_sum_stats[!duplicated(bim_sum_stats$V2),]
+
+    flag=bim_sum_stats[bim_sum_stats$V6==bim_sum_stats$A1,'order'] # flipped. when ref=ref_ps, length(flag2)=0
+    if (length(flag)>0){  beta.all[flag[[1]],] = -beta.all[flag[[1]],]}
+
+    # G_val = readSomeSnp(beta.info$SNP, ped_val$fam_idx, BedFileReader=BedFileReader_new) 
+    # G_val = BedFileReader_new$readSomeSnp(beta.info$SNP, ped_val$fam_idx) 
+    # G_val <- do.call(cbind, G_val)
+
+    PRS.list = BedFileReader_new$calculatePRS_mat(beta.info$SNP, beta.all, ped_val$fam_idx) 
+
+    PRS.all <- cbind(base.beta = PRS.list[[1]], best.beta = PRS.list[[2]])
+
     return(PRS.all)
 }
 
@@ -470,136 +597,4 @@ splitgenome2<-function (CHR, POS, ref.CHR, ref.breaks, details = T, right = TRUE
     }
    out.item=list(results,Details)
    return(out.item)
-}
-
-#### for PTL-PRS ####
-PRStr_main_check_pv<-function(ref_file, sum_stats_file,target_sumstats_file, subprop, ref_file_ps, LDblocks, target_sumstats_train_file, target_sumstats_val_file, ps){
-	out1=0
-	if (file.exists(paste0(ref_file,".bim")) & file.exists(paste0(ref_file,".bed")) & file.exists(paste0(ref_file,".fam"))){} else {out1="The ref file doesn't exist!"}
-
-	if (!file.exists(sum_stats_file)){out1="The summary statistic file does not exist!"} else {
-		temp=fread(sum_stats_file,nrow=1)
-		if (ncol(temp)==4){
-			if (sum(colnames(temp) %in% c("V1","V2","V3","V4"))==4){} else{
-				if (sum(colnames(temp) %in% c("SNP","CHR","A1","Beta"))==4){} else {
-					out1="The structure of sum_stats_file is wrong!"
-				}
-			} 
-		} else {
-			if (ncol(temp)>4){
-				if (sum(colnames(temp) %in% c("SNP","CHR","A1","Beta"))<4){ 
-					out1="The structure of sum_stats_file is wrong!"
-				}
-			} else {
-				out1="The structure of sum_stats_file is wrong!"
-			}
-		} 
-	}
-
-    # need pseudo summ generation
-    if (!is.null(target_sumstats_file)){
-        if (!file.exists(target_sumstats_file)){out1="The target summary statistic file does not exist!"} else {
-            temp=fread(target_sumstats_file,nrow=1)
-            if (ncol(temp)==4 | ncol(temp)==5){
-                if ("cor" %in% colnames(temp)){
-                    if (sum(colnames(temp) %in% c("SNP", "A1", "cor", "N"))==4){} else{
-                        out1="The structure of target_sum_stats_file is wrong!"
-                    }                    
-                }
-                else {
-                    if (sum(colnames(temp) %in% c("SNP", "A1", "beta", "p", "N"))==5){} else{
-                        out1="The structure of target_sum_stats_file is wrong!"
-                    }            
-                }
-            } else {
-                if (ncol(temp)>5){
-                    if (sum(colnames(temp) %in% c("SNP", "A1", "cor", "N"))<4 | sum(colnames(temp) %in% c("SNP", "A1", "beta", "p", "N"))<5){ 
-                        out1="The structure of target_sum_stats_file is wrong!"
-                    }
-                } else {
-                    out1="The structure of target_sum_stats_file is wrong!"
-                }
-            }
-        }
-        if (!is.logical(ps)) {out1='ps should be boolean'}
-        if (ps) {
-            if (!is.numeric(subprop) | subprop<0 | subprop>1) {out1='subprop should be a number between 0 and 1'}
-            if (file.exists(paste0(ref_file_ps,".bim")) & file.exists(paste0(ref_file_ps,".bed")) & file.exists(paste0(ref_file_ps,".fam"))){} else {out1="The ref file for pseudo summary (ps) generation doesn't exist!"}
-        }
-    }
-
-    # no pseudo summ generation
-    else {
-        if (!file.exists(target_sumstats_train_file)){out1="The target summary statistic train file does not exist!"} else {
-        	temp=fread(target_sumstats_train_file,nrow=1)
-            if (ncol(temp)==4 | ncol(temp)==5){
-                if ("cor" %in% colnames(temp)){
-                    if (sum(colnames(temp) %in% c("SNP", "A1", "cor", "N"))==4){} else{
-                        out1="The structure of target_sumstats_train_file is wrong!"
-                    }                    
-                }
-                else {
-                    if (sum(colnames(temp) %in% c("SNP", "A1", "beta", "p", "N"))==5){} else{
-                        out1="The structure of target_sumstats_train_file is wrong!"
-                    }            
-                }
-            } else {
-                if (ncol(temp)>5){
-                    if (sum(colnames(temp) %in% c("SNP", "A1", "cor", "N"))<4 | sum(colnames(temp) %in% c("SNP", "A1", "beta", "p", "N"))<5){ 
-                        out1="The structure of target_sumstats_train_file is wrong!"
-                    }
-                } else {
-                    out1="The structure of target_sumstats_train_file is wrong!"
-                }
-            }
-        }
-
-        if (!file.exists(target_sumstats_val_file)){out1="The target summary statistic validation file does not exist!"} else {
-        	temp=fread(target_sumstats_val_file,nrow=1)
-            if (ncol(temp)==4 | ncol(temp)==5){
-                if ("cor" %in% colnames(temp)){
-                    if (sum(colnames(temp) %in% c("SNP", "A1", "cor", "N"))==4){} else{
-                        out1="The structure of target_sumstats_val_file is wrong!"
-                    }                    
-                }
-                else {
-                    if (sum(colnames(temp) %in% c("SNP", "A1", "beta", "p", "N"))==5){} else{
-                        out1="The structure of target_sumstats_val_file is wrong!"
-                    }            
-                }
-            } else {
-                if (ncol(temp)>5){
-                    if (sum(colnames(temp) %in% c("SNP", "A1", "cor", "N"))<4 | sum(colnames(temp) %in% c("SNP", "A1", "beta", "p", "N"))<5){ 
-                        out1="The structure of target_sumstats_val_file is wrong!"
-                    }
-                } else {
-                    out1="The structure of target_sumstats_val_file is wrong!"
-                }
-            }
-        }
-    }
-
-	if (!LDblocks %in% c("EUR.hg19", "AFR.hg19", "ASN.hg19")) {out1="The LDblocks name is wrong!"}
-    return(out1)
-}
-
-PRS_tuning_pv_byLR <- function(beta.byL, betaRho.byL, betaG.byL, lr_list, N_val){
-    # R2.byL <- c()
-    # for (idx in 1:length(betaRho.byL)){
-    #     R2 = betaRho.byL[idx]^2 / sum(betaG.byL[,idx]^2)
-    #     R2.byL <- c(R2.byL, R2)
-    # }
-
-    R2.byL = (N_val * betaRho.byL^2) / as.vector(betaG.byL %*% t(betaG.byL)) # colSums(betaG.byL^2)
-
-  flag=which(R2.byL==max(R2.byL))[1]
-#   print(R2.byL)
-#   print(flag)
-  out.final=list()
-  out.final$best.param=lr_list[flag] / dim(beta.byL)[1]
-  out.final$best.beta = as.data.frame(beta.byL)[,c(1:3,9,8+flag)] #SNP, CHR, A1, Beta2, best.beta
-  colnames(out.final$best.beta)[4:5] = c('base.beta', 'best.beta')
-  out.final$R2.list = R2.byL
-
-  return(out.final)
 }

@@ -313,7 +313,7 @@ vector<vector<double>> BedFileReader::readSomeSnp(vector<string> snpNames, vecto
         if (!sampleList.empty()) {
             a1.reserve(sampleList.size());
             for (const int& sampleIdx : sampleList) {
-                if (sampleIdx != -1 && sampleIdx < a0.size()){
+                if (sampleIdx != -1 && static_cast<size_t>(sampleIdx) < a0.size()){
                     a1.push_back(static_cast<double>(a0[sampleIdx]));
                 }
                 else {
@@ -374,7 +374,7 @@ vector<float> BedFileReader::calculatePRS(vector<string> snpList, vector<float> 
     //     PRS.resize(m_line_counter, 0);
     // }
 
-    for (int i = 0; i < snpList.size(); i++){
+    for (size_t i = 0; i < snpList.size(); i++){
         //snpIndex = findSnpIndex(snpList[i]);
         
         snpIndex = this->snp_index.find(snpList[i])->second;
@@ -385,7 +385,7 @@ vector<float> BedFileReader::calculatePRS(vector<string> snpList, vector<float> 
                 for (const int& sampleIdx : sampleList){
                     if (sampleIdx!=-1){
                         //PRS[j] += oneSnp[sampleIdx] * betaList[i];
-                        cout << "oneSNP size: " << oneSnp.size() << ", sampleIdx: " << sampleIdx << "Isin: " << (sampleIdx <= oneSnp.size()) << endl;
+                        cout << "oneSNP size: " << oneSnp.size() << ", sampleIdx: " << sampleIdx << "Isin: " << (static_cast<size_t>(sampleIdx) <= oneSnp.size()) << endl;
                         //PRS.push_back(oneSnp[sampleIdx] * betaList[i]);
                     }
                     else{
@@ -397,7 +397,7 @@ vector<float> BedFileReader::calculatePRS(vector<string> snpList, vector<float> 
                 int j = 0;
                 for (const int& sampleIdx : sampleList){
                     if (sampleIdx!=-1){
-                        cout << "oneSNP size: " << oneSnp.size() << ", sampleIdx: " << sampleIdx << "Isin: " << (sampleIdx <= oneSnp.size()) << endl;
+                        cout << "oneSNP size: " << oneSnp.size() << ", sampleIdx: " << sampleIdx << "Isin: " << (static_cast<size_t>(sampleIdx) <= oneSnp.size()) << endl;
                         //PRS[j] += oneSnp[sampleIdx] * betaList[i];
                     }
                     // PRS of NA remains 0
@@ -422,12 +422,12 @@ vector<float> BedFileReader::calculatePRS(vector<string> snpList, vector<float> 
         // }
         else {
             if (i==0) {
-                for (int j = 0; j < oneSnp.size(); j++){
+                for (size_t j = 0; j < oneSnp.size(); j++){
                     // PRS.push_back(oneSnp[j] * betaList[i]); //sample x 1
                 }
             }
             else{
-                for (int j = 0; j < oneSnp.size(); j++){
+                for (size_t j = 0; j < oneSnp.size(); j++){
                     // PRS[j] += oneSnp[j] * betaList[i];
                 }
             }
@@ -457,7 +457,7 @@ vector<vector<float>> BedFileReader::calculatePRS_mat(vector<string> snpList, ve
     // }
 
     for (int k = 0; k < models; ++k){
-        for (int i = 0; i < snpList.size(); ++i){
+        for (size_t i = 0; i < snpList.size(); ++i){
             //snpIndex = findSnpIndex(snpList[i]);
             
             snpIndex = this->snp_index.find(snpList[i])->second;
@@ -466,10 +466,10 @@ vector<vector<float>> BedFileReader::calculatePRS_mat(vector<string> snpList, ve
             // calculate only sampleList 
             if (!sampleList.empty()) {
                 //cout<<"got sample list"<<endl;
-                int j = 0;
+                size_t j = 0;
                 for (const int& sampleIdx : sampleList){
                     if (sampleIdx!=-1){
-                        if (sampleIdx >= oneSnp.size() || j >= PRS[k].size()) {
+                        if (static_cast<size_t>(sampleIdx) >= oneSnp.size() || j >= PRS[k].size()) {
                             cerr << "Error: Index out of bounds in sampleList processing." << endl;
                             continue;
                         }
@@ -482,7 +482,7 @@ vector<vector<float>> BedFileReader::calculatePRS_mat(vector<string> snpList, ve
                 //2586 samples for train
             }
             else{
-                for (int j = 0; j < oneSnp.size(); ++j){
+                for (size_t j = 0; j < oneSnp.size(); ++j){
                     if (j >= PRS[k].size()) {
                         cerr << "Error: Index out of bounds in full sample processing." << endl;
                         continue;
@@ -493,7 +493,7 @@ vector<vector<float>> BedFileReader::calculatePRS_mat(vector<string> snpList, ve
         }
     }
     chrono::steady_clock::time_point end = chrono::steady_clock::now();
-    cout << "Time take to read some snps is " << chrono::duration_cast<chrono::milliseconds>(end - begin).count() << "[ms]" << endl;
+    // cout << "Time taken to calculate PRS matrix is " << chrono::duration_cast<chrono::milliseconds>(end - begin).count() << "[ms]" << endl;
 
     return PRS;
 }
@@ -551,80 +551,6 @@ void BedFileReader::close_bed(){
   }
 }
    
-// // [[Rcpp::export]]
-// RcppExport SEXP BedFileReader__new(SEXP famName_, SEXP bimName_, SEXP bedName_) {
-//     // create an external pointer to a Uniform object
-//   // convert inputs to appropriate C++ types
-//   string famName = Rcpp::as<string>(famName_);
-//   string bimName = Rcpp::as<string>(bimName_);
-//   string bedName = Rcpp::as<string>(bedName_);
-
-//   // create a pointer to an Uniform object and wrap it as an external pointer
-//   Rcpp::XPtr<BedFileReader> reader( new BedFileReader(famName, bimName, bedName), true );
-
-//   // return the external pointer to the R side
-//   return reader;
-// }
-
-// // [[Rcpp::export]]
-// RcppExport SEXP BedFileReader__snp_index_func(SEXP xp){
-//     Rcpp::XPtr<BedFileReader> reader(xp);
-//     reader->snp_index_func();
-// }
-
-// // [[Rcpp::export]]
-// RcppExport SEXP BedFileReader__readOneSnp(SEXP xp, SEXP snpIndex_){
-//     Rcpp::XPtr<BedFileReader> reader(xp);
-
-//     int snpIndex = Rcpp::as<int>(snpIndex_);
-
-//     vector<int> oneSnp = reader->readOneSnp(snpIndex);
-    
-//     return Rcpp::wrap(oneSnp);
-// }
-
-// // RcppExport SEXP BedFileReader__calculatePRS(SEXP xp, SEXP snpList_, SEXP betaList_, SEXP sampleList_){
-// //     Rcpp::XPtr<BedFileReader> reader(xp);
-
-// //     vector<string> snpList = Rcpp::as< vector<string> >(snpList_);
-// //     vector<float> betaList = Rcpp::as< std::vector<float> >(betaList_);
-// //     vector<int> sampleList = Rcpp::as< std::vector<int> >(sampleList_);
-
-// //     vector<float> PRS = reader->calculatePRS(snpList, betaList, sampleList);
-
-// //     return Rcpp::wrap(PRS);
-// // }
-
-// // RcppExport SEXP BedFileReader__calculatePRS_mat(SEXP xp, SEXP snpList_, SEXP betaAll_, SEXP sampleList_){
-// //     Rcpp::XPtr<BedFileReader> reader(xp);
-
-// //     vector<string> snpList = Rcpp::as< vector<string> >(snpList_);
-// //     vector<vector<float>> betaAll = Rcpp::as< std::vector<std::vector<float>> >(betaAll_);
-// //     vector<int> sampleList = Rcpp::as< std::vector<int> >(sampleList_);
-
-// //     vector<vector<float>> PRS = reader->calculatePRS_mat(snpList, betaAll, sampleList);
-
-// //     return Rcpp::wrap(PRS);
-// // }
-
-// // [[Rcpp::export]]
-// RcppExport SEXP BedFileReader__readAllSnp(SEXP xp, SEXP filename_){
-//     Rcpp::XPtr<BedFileReader> reader(xp);
-
-//     string filename = Rcpp::as<string>(filename_);
-
-//     reader->readAllSnp(filename);
-// }
-
-// // [[Rcpp::export]]
-// RcppExport SEXP BedFileReader__findSnpIndex(SEXP xp, SEXP snpName_){
-//     Rcpp::XPtr<BedFileReader> reader(xp);
-
-//     string snpName = Rcpp::as<string>(snpName_);
-
-//     int snpIndex = reader->findSnpIndex(snpName);
-//     return Rcpp::wrap(snpIndex);
-// }
 
 RCPP_MODULE(BedFileReader_module) {
     class_<BedFileReader>("BedFileReader")
@@ -632,8 +558,9 @@ RCPP_MODULE(BedFileReader_module) {
         .method("snp_index_func", &BedFileReader::snp_index_func, "Mapping a SNP name to its index in bim")
         .method("findSnpIndex", &BedFileReader::findSnpIndex, "Find index of a single SNP")
         .method("readOneSnp", &BedFileReader::readOneSnp, "Read a single SNP based on index")
-        .method("readSomeSnp", &BedFileReader::readSomeSnp, "Read multiple SNPs based on index");
-}
+        .method("readSomeSnp", &BedFileReader::readSomeSnp, "Read multiple SNPs based on index")
+        .method("calculatePRS_mat", &BedFileReader::calculatePRS_mat, "Calculate PRS of multiple SNPs & betas");
+    }
 
 
 
