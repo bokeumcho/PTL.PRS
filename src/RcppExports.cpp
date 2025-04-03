@@ -21,11 +21,58 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// create_input_queue
+SEXP create_input_queue();
+RcppExport SEXP _PTL_PRS_c_create_input_queue() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(create_input_queue());
+    return rcpp_result_gen;
+END_RCPP
+}
+// push_input
+void push_input(SEXP queue_ptr, Rcpp::List input);
+RcppExport SEXP _PTL_PRS_c_push_input(SEXP queue_ptrSEXP, SEXP inputSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type queue_ptr(queue_ptrSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type input(inputSEXP);
+    push_input(queue_ptr, input);
+    return R_NilValue;
+END_RCPP
+}
+// finish_queue
+void finish_queue(SEXP queue_ptr);
+RcppExport SEXP _PTL_PRS_c_finish_queue(SEXP queue_ptrSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type queue_ptr(queue_ptrSEXP);
+    finish_queue(queue_ptr);
+    return R_NilValue;
+END_RCPP
+}
+// block_calculation_parallel_streamed
+List block_calculation_parallel_streamed(SEXP queue_ptr, int n_threads);
+RcppExport SEXP _PTL_PRS_c_block_calculation_parallel_streamed(SEXP queue_ptrSEXP, SEXP n_threadsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type queue_ptr(queue_ptrSEXP);
+    Rcpp::traits::input_parameter< int >::type n_threads(n_threadsSEXP);
+    rcpp_result_gen = Rcpp::wrap(block_calculation_parallel_streamed(queue_ptr, n_threads));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 RcppExport SEXP _rcpp_module_boot_BedFileReader_module();
 
 static const R_CallMethodDef CallEntries[] = {
     {"_PTL_PRS_c_block_calculation_parallel", (DL_FUNC) &_PTL_PRS_c_block_calculation_parallel, 1},
+    {"_PTL_PRS_c_create_input_queue", (DL_FUNC) &_PTL_PRS_c_create_input_queue, 0},
+    {"_PTL_PRS_c_push_input", (DL_FUNC) &_PTL_PRS_c_push_input, 2},
+    {"_PTL_PRS_c_finish_queue", (DL_FUNC) &_PTL_PRS_c_finish_queue, 1},
+    {"_PTL_PRS_c_block_calculation_parallel_streamed", (DL_FUNC) &_PTL_PRS_c_block_calculation_parallel_streamed, 2},
     {"_rcpp_module_boot_BedFileReader_module", (DL_FUNC) &_rcpp_module_boot_BedFileReader_module, 0},
     {NULL, NULL, 0}
 };

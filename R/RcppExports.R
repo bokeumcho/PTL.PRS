@@ -5,3 +5,19 @@ block_calculation_parallel <- function(blocks) {
     .Call(`_PTL_PRS_c_block_calculation_parallel`, blocks)
 }
 
+create_input_queue <- function() {
+    .Call(`_PTL_PRS_c_create_input_queue`)
+}
+
+push_input <- function(queue_ptr, input) {
+    invisible(.Call(`_PTL_PRS_c_push_input`, queue_ptr, input))
+}
+
+finish_queue <- function(queue_ptr) {
+    invisible(.Call(`_PTL_PRS_c_finish_queue`, queue_ptr))
+}
+
+block_calculation_parallel_streamed <- function(queue_ptr, n_threads) {
+    .Call(`_PTL_PRS_c_block_calculation_parallel_streamed`, queue_ptr, n_threads)
+}
+

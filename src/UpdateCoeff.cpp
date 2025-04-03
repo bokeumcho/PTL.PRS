@@ -6,8 +6,13 @@
 #include <sys/resource.h>
 #include <iostream>
 
+#include <mutex>
+#include "input_queue.h"
+
 using namespace Rcpp;
 using namespace RcppParallel;
+
+typedef InputQueue<List> QueueType;
 
 // [[Rcpp::plugins(cpp11)]]
 
@@ -160,34 +165,6 @@ struct BlockData {
       Beta2(as<NumericVector>(as<List>(block["geno_info2"])["Beta2"]))
   { }
 };
-// struct BlockData {
-//   NumericMatrix beta_all;
-//   NumericMatrix GG2;
-//   NumericMatrix geno_ref;
-//   NumericVector lr_list;
-//   int maxiter;
-//   NumericVector sum_stats_target_val_cor;
-//   int patience;
-//   bool trace;
-//   NumericVector sd;
-//   List geno_info2;
-//   NumericVector Beta2;
-
-//   // Constructor: simply assign the inputs without converting their data types.
-//   BlockData(const List& block)
-//     : beta_all(block["beta_all"]),
-//       GG2(block["GG2"]),
-//       geno_ref(block["geno_ref"]),
-//       lr_list(block["lr_list"]),
-//       maxiter(as<int>(block["maxiter"])),
-//       sum_stats_target_val_cor(block["sum_stats_target_val_cor"]),
-//       patience(as<int>(block["patience"])),
-//       trace(as<bool>(block["trace"])),
-//       geno_info2(block["geno_info2"]),
-//       sd(block["geno_info2"]["sd"]),
-//       Beta2(block["geno_info2"]["Beta2"])
-//   { }
-// };
 
 BlockData convertBlockData(List block) {
   return BlockData(block);
@@ -285,7 +262,7 @@ List block_calculation_parallel(List blocks) {
     blockDataVec.push_back(convertBlockData(blk));
   }
   
-  printMemoryUsage("After converting blocks");
+  // printMemoryUsage("After converting blocks");
 
   // Prepare a vector to hold results (one BlockResult per block)
   std::vector<BlockResult> local_results(n);
@@ -293,7 +270,7 @@ List block_calculation_parallel(List blocks) {
   // Run the parallel worker.
   BlockWorker worker(blockDataVec, local_results);
   parallelFor(0, n, worker);
-  printMemoryUsage("After parallel worker");
+  // printMemoryUsage("After parallel worker");
 
   // Now, outside the parallel region, convert the plain C++ results into R objects.
   List out(n);
@@ -321,8 +298,85 @@ List block_calculation_parallel(List blocks) {
     out[i] = blockOut;
   }
   
-  printMemoryUsage("Before returning out");
+  // printMemoryUsage("Before returning out");
 
   return out;
 }
 
+// [[Rcpp::export]]
+SEXP create_input_queue() {
+  Rcpp::XPtr<QueueType> ptr(new QueueType(), true);
+  return ptr;
+}
+
+// [[Rcpp::export]]
+void push_input(SEXP queue_ptr, Rcpp::List input) {
+  Rcpp::XPtr<QueueType> queue(queue_ptr);
+  queue->push(input);
+}
+
+// [[Rcpp::export]]
+void finish_queue(SEXP queue_ptr) {
+  Rcpp::XPtr<QueueType> queue(queue_ptr);
+  queue->set_finished();
+}
+
+// [[Rcpp::export]]
+List block_calculation_parallel_streamed(SEXP queue_ptr, int n_threads) {
+  Rcpp::XPtr<QueueType> queue(queue_ptr);
+  std::vector<BlockData> blockDataVec;
+
+  // ------------------------------
+  // 1. Pull blocks one-by-one from R-prepared queue
+  // ------------------------------
+  Rcout << "Receiving block data from R (via queue)..." << std::endl;
+  while (true) {
+    List blk = queue->pop();
+    if (Rf_isNull(blk) || blk.size() == 0) break; // end-of-queue signal
+    blockDataVec.push_back(convertBlockData(blk));
+  }
+
+  int n = blockDataVec.size();
+  Rcout << "Received " << n << " blocks from R" << std::endl;
+
+  // printMemoryUsage("After converting blocks");
+
+  // ------------------------------
+  // 2. Allocate result container
+  // ------------------------------
+  std::vector<BlockResult> local_results(n);
+
+  // ------------------------------
+  // 3. Run parallel worker
+  // ------------------------------
+  BlockWorker worker(blockDataVec, local_results);
+  parallelFor(0, n, worker, n_threads);
+
+  // printMemoryUsage("After parallel worker");
+
+  // ------------------------------
+  // 4. Convert results back to R format
+  // ------------------------------
+  List out(n);
+  for (int i = 0; i < n; i++) {
+    List baseList(blockDataVec[i].geno_info2);
+    BlockResult& blockResult = local_results[i];
+
+    for (std::size_t j = 0; j < blockResult.extra_beta.size(); j++) {
+      std::ostringstream oss;
+      oss << "beta_all_" << (j + 1);
+      baseList[oss.str()] = wrap(blockResult.extra_beta[j]);
+    }
+
+    List blockOut = List::create(
+      Named("beta_byL") = DataFrame(baseList),
+      Named("beta_rho") = wrap(blockResult.beta_rho),
+      Named("beta_g") = wrap(blockResult.beta_g)
+    );
+    out[i] = blockOut;
+  }
+
+  // printMemoryUsage("Before returning result");
+
+  return out;
+}

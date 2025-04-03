@@ -95,60 +95,6 @@ BedFileReader::BedFileReader(string famName, string bimName, string bedName)
 
 }
 
-// void BedFileReader::snp_index_func(){
-    
-//     this->bim.open(this->bimName_temp);
-
-//     // error messege
-//     if (!this->bim.is_open()){
-//     error.open("reading_file.log", ios_base::app);
-//     error << "BIM_FILE_READ_ERROR: cannot open the file\n";
-//     error.close();
-//     } 
-
-//     size_t curLine = 0;
-//     string line;
-
-//     while(getline(this->bim, line)) { 
-//         curLine++;
-//         std::istringstream iss(line);
-
-//         int column1;
-//         string column2;
-
-//         iss >> column1 >> column2; 
-//         this->snp_index.insert({column2, curLine});
-//     }
-
-//     this->bim.close(); 
-// }
-
-// void BedFileReader::snp_index_func(){
-//   this->bim.open(this->bimName_temp);
-//   // error messege
-//   if (!this->bim.is_open()){
-//   error.open("reading_file.log", ios_base::app);
-//   error << "BIM_FILE_READ_ERROR: cannot open the file\n";
-//   error.close();
-//   }
-//   size_t curLine = 0;
-//   string line;
-//   snp_index.clear();
-
-//   while(getline(this->bim, line)) {
-//     curLine++;
-//     std::istringstream iss(line);
-//     int column1;
-//     string column2;
-//     iss >> column1 >> column2;
-//     this->snp_index.insert({column2, curLine});
-//     //cout<<curLine<<column2<<endl;
-//   }
-//   //<<"map generation completed, number of snp: "<<curLine<<endl;
-//   this->bim.close();
-//   //cout<<"bim file closed"<<endl;
-// }
-
 void BedFileReader::snp_index_func() {
     // Open the file
     bim.open(bimName_temp);
@@ -184,34 +130,6 @@ void BedFileReader::snp_index_func() {
 
     bim.close();
 }
-
-// int BedFileReader::findSnpIndex(string snpName){
-    
-//     this->bim.open(this->bimName_temp); //dictionary (map) : snpid(std::string) as key, snpidx as value
-
-//     // error messege
-//     if (!this->bim.is_open()){
-//     error.open("reading_file.log", ios_base::app);
-//     error << "BIM_FILE_READ_ERROR: cannot open the file\n";
-//     error.close();
-//     } 
-
-//     size_t curLine = 0;
-//     string line;
-    
-//     while(getline(this->bim, line)) { 
-//         curLine++;
-        
-//         if (line.find(snpName, 0) != string::npos) { //only 2nd col
-//             //cout << "found: " << this->snpName << " line: " << curLine << endl;
-//             this->snpIndex = curLine;
-//         }
-//     }
-//     this->bim.close();  
-
-//     //cout << this->snpIndex << endl;
-//     return this->snpIndex;
-// }
 
 int BedFileReader::findSnpIndex(string snpName){
   snpIndex = this->snp_index.find(snpName)->second;
@@ -405,21 +323,6 @@ vector<float> BedFileReader::calculatePRS(vector<string> snpList, vector<float> 
                 }
             }
         }
-        // calculate only sampleList 
-        // if (!sampleList.empty()) {
-        //     //cout<<"got sample list"<<endl;
-        //     int j = 0;
-        //     vector<float> a0;
-        //     for (const int& sampleIdx : sampleList){
-        //         if (sampleIdx!=-1){
-        //             PRS[j] += oneSnp[sampleIdx] * betaList[i];
-        //         }
-        //         // PRS of NA remains 0
-        //         j++;
-        //     }
-        //     //cout<<j<<endl;
-        //     //2586 samples for train
-        // }
         else {
             if (i==0) {
                 for (size_t j = 0; j < oneSnp.size(); j++){
@@ -448,13 +351,6 @@ vector<vector<float>> BedFileReader::calculatePRS_mat(vector<string> snpList, ve
 
     vector<vector<float>> PRS(models, vector<float> (sampleCount, 0.0f));
      // models * samples
-
-    // if (!sampleList.empty()) {
-    //     PRS.resize(models, vector<float> (sampleList.size(), 0));
-    // } 
-    // else {
-    //     PRS.resize(m_line_counter, 0);
-    // }
 
     for (int k = 0; k < models; ++k){
         for (size_t i = 0; i < snpList.size(); ++i){
