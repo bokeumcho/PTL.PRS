@@ -1,8 +1,8 @@
-Package: PTL.PRS.c
+Package: PTL.PRS
 Type: Package
 Title: Transfer learning of Polygenic Risk Score with Pseudo-validation
 Version: 2.0.0
-Date: 2025-03-06
+Date: 2025-04-06
 Authors@R: 
     person("Bokeum", "Cho", , "bokeum1810@snu.ac.kr", role = c("aut", "cre"))
 Description: Use transfer learning to fine-tune the baseline PRS model trained with GWAS summary statistics from a larger sample size source group to a smaller target group, using summary statistics only.
