@@ -2,22 +2,22 @@
 # Generator token: 10BE3573-1514-4C36-9D1C-5A225CD40393
 
 block_calculation_parallel <- function(blocks) {
-    .Call(`_PTL_PRS_c_block_calculation_parallel`, blocks)
+    .Call(`_PTL_PRS_block_calculation_parallel`, blocks)
 }
 
 create_input_queue <- function() {
-    .Call(`_PTL_PRS_c_create_input_queue`)
+    .Call(`_PTL_PRS_create_input_queue`)
 }
 
 push_input <- function(queue_ptr, input) {
-    invisible(.Call(`_PTL_PRS_c_push_input`, queue_ptr, input))
+    invisible(.Call(`_PTL_PRS_push_input`, queue_ptr, input))
 }
 
 finish_queue <- function(queue_ptr) {
-    invisible(.Call(`_PTL_PRS_c_finish_queue`, queue_ptr))
+    invisible(.Call(`_PTL_PRS_finish_queue`, queue_ptr))
 }
 
-block_calculation_parallel_streamed <- function(queue_ptr, n_threads) {
-    .Call(`_PTL_PRS_c_block_calculation_parallel_streamed`, queue_ptr, n_threads)
+block_calculation_parallel_streamed <- function(queue_ptr) {
+    .Call(`_PTL_PRS_block_calculation_parallel_streamed`, queue_ptr)
 }
 

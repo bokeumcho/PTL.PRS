@@ -21,7 +21,8 @@ PTL_PRS_train(
   lr_list,
   iter,
   patience,
-  trace = FALSE
+  trace = FALSE,
+  random_seed_test = 70
 )
 }
 \arguments{
@@ -49,7 +50,7 @@ PTL_PRS_train(
 
 \item{pseudo_test}{Logical; if True, pseudo-split target summary statistics into train, validation and test.}
 
-\item{random_seed}{A random seed number to randomly (pseudo) split target summary statistics}
+\item{random_seed}{A random seed number to split pseudo summary statistics for train and validation}
 
 \item{lr_list}{A list of learning rates}
 
@@ -58,6 +59,8 @@ PTL_PRS_train(
 \item{patience}{A number of times to tolerate decrease of validation pseudo-R}
 
 \item{trace}{Logical; if TRUE, print stopped iteration}
+
+\item{random_seed_test}{A random seed number to split pseudo summary statistics for test and train+validation}
 }
 \value{
 Returns a list containing the following elements:

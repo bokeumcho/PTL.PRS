@@ -2,7 +2,7 @@
 % Please edit documentation in R/BasicFunctions.R
 \name{PTL_PRS_test}
 \alias{PTL_PRS_test}
-\title{Test performance of PTL-PRS}
+\title{Function to test performance of PTL-PRS using PLINK file}
 \usage{
 PTL_PRS_test(
   plink_file,
@@ -11,9 +11,27 @@ PTL_PRS_test(
   outfile,
   Ytype,
   Covar_name,
-  Y_name
+  Y_name,
+  plink_etc = ""
 )
 }
+\arguments{
+\item{plink_file}{Prefix of the PLINK file containing the test data}
+
+\item{by_chr}{If TRUE, read and compute matrix by chromosomes}
+
+\item{ped_test_file}{The file path to the ped file for test sample}
+
+\item{outfile}{Prefix for the output file location}
+
+\item{Ytype}{Type of phenotype Y, either "C"(continuous) or "B"(binary)}
+
+\item{Covar_name}{A vector of names of covariates we need to adjust in the model, such as c("Sex","Age")}
+
+\item{Y_name}{The name of Y in the model}
+
+\item{plink_etc}{Suffix of the PLINK file between chromosome number and file extension}
+}
 \description{
-Test performance of PTL-PRS
+Function to test performance of PTL-PRS using PLINK file
 }

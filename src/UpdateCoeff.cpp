@@ -3,8 +3,8 @@
 #include <vector>
 #include <string>
 #include <sstream>
-#include <sys/resource.h>
-#include <iostream>
+// #include <sys/resource.h>
+// #include <iostream>
 
 #include <mutex>
 #include "input_queue.h"
@@ -237,15 +237,15 @@ struct BlockWorker : public Worker {
   }
 };
 
-void printMemoryUsage(const std::string& label) {
-  struct rusage usage;
-  if(getrusage(RUSAGE_SELF, &usage) == 0) {
-    std::cout << label << " memory usage: " 
-              << usage.ru_maxrss << " kilobytes" << std::endl;
-  } else {
-    std::cerr << "Failed to get memory usage" << std::endl;
-  }
-}
+// void printMemoryUsage(const std::string& label) {
+//   struct rusage usage;
+//   if(getrusage(RUSAGE_SELF, &usage) == 0) {
+//     std::cout << label << " memory usage: " 
+//               << usage.ru_maxrss << " kilobytes" << std::endl;
+//   } else {
+//     std::cerr << "Failed to get memory usage" << std::endl;
+//   }
+// }
 
 // ----------------------------------------------------------------------
 // Exported Function: Pre-convert input blocks, run parallel worker,
@@ -322,7 +322,7 @@ void finish_queue(SEXP queue_ptr) {
 }
 
 // [[Rcpp::export]]
-List block_calculation_parallel_streamed(SEXP queue_ptr, int n_threads) {
+List block_calculation_parallel_streamed(SEXP queue_ptr) {
   Rcpp::XPtr<QueueType> queue(queue_ptr);
   std::vector<BlockData> blockDataVec;
 
@@ -350,7 +350,7 @@ List block_calculation_parallel_streamed(SEXP queue_ptr, int n_threads) {
   // 3. Run parallel worker
   // ------------------------------
   BlockWorker worker(blockDataVec, local_results);
-  parallelFor(0, n, worker, n_threads);
+  parallelFor(0, n, worker);
 
   // printMemoryUsage("After parallel worker");
 

@@ -28,6 +28,8 @@ class BedFileReader{
     // void readSomeSnp(string fileName, vector<string> snpNames);
     // vector<vector<int>> readSomeSnp(vector<string> snpNames, vector<int> sampleList);
     vector<vector<double>> readSomeSnp(vector<string> snpNames, vector<int> sampleList);
+    // vector<vector<double>> readSomeSnpParallel(vector<string> snpNames, vector<int> sampleList);
+    vector<vector<double>> readSomeSnpParallel(const vector<string>& snpNames, const vector<int>& sampleList);
 
     void close_bed();
     vector<float> calculatePRS(vector<string> snpList, vector<float> betaList, vector<int> sampleList);

@@ -1,6 +1,6 @@
 Package: PTL.PRS
 Type: Package
-Title: Transfer learning of Polygenic Risk Score with Pseudo-validation
+Title: Transfer Learning of Polygenic Risk Scores with Pseudo-Validation
 Version: 2.0.0
 Date: 2025-04-06
 Authors@R: 
@@ -10,9 +10,10 @@ License: GPL-3
 Encoding: UTF-8
 Imports: 
     Rcpp,
+    RcppParallel,
     data.table,
+    methods,
     ROCR,
-    lassosum,
     parallel
 LinkingTo: Rcpp, RcppParallel
 SystemRequirements: GNU make

@@ -3,7 +3,6 @@
 #' later add more documentation
 #' 
 #' @name BedFileReader
-#' @export BedFileReader
 
 # ^^^^^^^^^^^^^^^^
 # Export the "BedFileReader" C++ class by explicitly requesting BedFileReader be

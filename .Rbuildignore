@@ -1,0 +1,9 @@
+^\.git$
+^\.vscode$
+^.*\.Rproj$
+^.*\.log$
+^.*\.tmp$
+^src/MakeVars
+^etc($|/)
+^tests/testthat/[^/]+\.(txt|summaries)$
+^tests/testthat/test\.PTL_PRS_time\.R$

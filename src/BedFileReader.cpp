@@ -8,10 +8,12 @@
 #include <chrono>
 
 #include <Rcpp.h>
+#include <RcppParallel.h>
 #include "BedFileReader.h"
 
 using namespace std;
 using namespace Rcpp;
+using namespace RcppParallel;
 
 /// @brief 
 /// @param famName 
@@ -51,9 +53,9 @@ BedFileReader::BedFileReader(string famName, string bimName, string bedName)
         
     }
     
-    cout << "Number of individuals: " << this->m_line_counter << endl;
+    Rcout << "Number of individuals: " << this->m_line_counter << endl;
     this->m_size_of_esi = (this->m_line_counter + 3)/4; //+3 for magic number & mode
-    cout << "Number of bytes: " << this->m_size_of_esi << endl;
+    Rcout << "Number of bytes: " << this->m_size_of_esi << endl;
 
     /* ---------- bim file reading ----------*/
 
@@ -76,7 +78,7 @@ BedFileReader::BedFileReader(string famName, string bimName, string bedName)
         
     }
 
-    cout << "Number of snps: " << this->m_num_of_snps << endl;
+    Rcout << "Number of snps: " << this->m_num_of_snps << endl;
 
     /* ---------- bed file reading ----------*/
     this->bed.open(bedName, ios::binary); // read it as binary
@@ -200,7 +202,7 @@ vector<int> BedFileReader::readOneSnp(int snpIndex){
 
 void BedFileReader::readAllSnp(string fileName){
 
-    chrono::steady_clock::time_point begin = chrono::steady_clock::now();
+    // chrono::steady_clock::time_point begin = chrono::steady_clock::now();
     ofstream matrix;
     matrix.open(fileName, ios_base::app);
     for (size_t i= 1; i <= this->m_num_of_snps; i++){
@@ -212,11 +214,92 @@ void BedFileReader::readAllSnp(string fileName){
         
     }
     matrix.close();
-    chrono::steady_clock::time_point end = chrono::steady_clock::now();
-    cout << "Time take to read all snps is " << chrono::duration_cast<chrono::milliseconds>(end - begin).count() << "[ms]" << endl;
+    // chrono::steady_clock::time_point end = chrono::steady_clock::now();
+    // cout << "Time take to read all snps is " << chrono::duration_cast<chrono::milliseconds>(end - begin).count() << "[ms]" << endl;
 }
 
 // ADDED
+// // The parallel worker for processing SNPs
+// struct SNPWorker : public Worker {
+//     // Input data
+//     const vector<string>& snpNames;
+//     const vector<int>& sampleList;
+//     // Output data (preallocated)
+//     vector<vector<double>>& genomat;
+//     // Pointer to the parent object to call its methods
+//     BedFileReader* reader;
+
+//     // Constructor
+//     SNPWorker(const vector<string>& snpNames,
+//                 const vector<int>& sampleList,
+//                 vector<vector<double>>& genomat,
+//                 BedFileReader* reader)
+//         : snpNames(snpNames), sampleList(sampleList), genomat(genomat), reader(reader) { }
+
+//     // Overloaded operator() to process a range of SNP names
+//     void operator()(std::size_t begin, std::size_t end) {
+//         for (std::size_t i = begin; i < end; i++) {
+//             const string &snpName = snpNames[i];
+//             int idx = reader->findSnpIndex(snpName);
+//             vector<int> a0 = reader->readOneSnp(idx);
+//             vector<double> a1;
+
+//             if (!sampleList.empty()) {
+//                 a1.reserve(sampleList.size());
+//                 for (const int &sampleIdx : sampleList) {
+//                     if (sampleIdx != -1 && static_cast<size_t>(sampleIdx) < a0.size()) {
+//                         a1.push_back(static_cast<double>(a0[sampleIdx]));
+//                     } else {
+//                         a1.push_back(9.0);
+//                     }
+//                 }
+//             } else {
+//                 a1.resize(a0.size());
+//                 for (size_t j = 0; j < a0.size(); j++) {
+//                     a1[j] = static_cast<double>(a0[j]);
+//                 }
+//             }
+//             genomat[i] = a1;
+//         }
+//     }
+// };
+
+// // Parallelized function using RcppParallel
+// vector<vector<double>> BedFileReader::readSomeSnpParallel(const vector<string>& snpNames, const vector<int>& sampleList = vector<int>()) {
+//     // Rcout << "currently using" << defaultNumThreads() << "threads in parallel" << endl;
+    
+//     // Preallocate output vector maintaining order (one per SNP)
+//     vector<vector<double>> genomat(snpNames.size());
+
+//     // Create our worker instance
+//     SNPWorker worker(snpNames, sampleList, genomat, this);
+
+//     // Run in parallel using parallelFor from RcppParallel
+//     parallelFor(0, snpNames.size(), worker);
+
+//     // Optional: Perform mean imputation per row as in your original code.
+//     for (auto &row : genomat) {
+//         double sum = 0.0;
+//         int count = 0;
+//         for (double val : row) {
+//             if (val != 9.0) {
+//                 sum += val;
+//                 count++;
+//             }
+//         }
+//         if (count > 0) {
+//             double mean_val = sum / count;
+//             for (double &val : row) {
+//                 if (val == 9.0) {
+//                     val = mean_val;
+//                 }
+//             }
+//         }
+//     }
+
+//     return genomat;
+// }
+
 vector<vector<double>> BedFileReader::readSomeSnp(vector<string> snpNames, vector<int> sampleList = vector<int>()){
     // cout << "snpNames size: " << snpNames.size() << ", sampleList size: " << sampleList.size() << endl;
 
@@ -278,9 +361,9 @@ vector<vector<double>> BedFileReader::readSomeSnp(vector<string> snpNames, vecto
 }
 
 vector<float> BedFileReader::calculatePRS(vector<string> snpList, vector<float> betaList, vector<int> sampleList = vector<int>()){
-    chrono::steady_clock::time_point begin = chrono::steady_clock::now();
+    // chrono::steady_clock::time_point begin = chrono::steady_clock::now();
     
-    cout << "snpList size: " << snpList.size() << ", sampleList size: " << sampleList.size() << endl;
+    // cout << "snpList size: " << snpList.size() << ", sampleList size: " << sampleList.size() << endl;
 
     int snpIndex;
     vector<int> oneSnp; 
@@ -303,8 +386,8 @@ vector<float> BedFileReader::calculatePRS(vector<string> snpList, vector<float> 
                 for (const int& sampleIdx : sampleList){
                     if (sampleIdx!=-1){
                         //PRS[j] += oneSnp[sampleIdx] * betaList[i];
-                        cout << "oneSNP size: " << oneSnp.size() << ", sampleIdx: " << sampleIdx << "Isin: " << (static_cast<size_t>(sampleIdx) <= oneSnp.size()) << endl;
-                        //PRS.push_back(oneSnp[sampleIdx] * betaList[i]);
+                        // cout << "oneSNP size: " << oneSnp.size() << ", sampleIdx: " << sampleIdx << "Isin: " << (static_cast<size_t>(sampleIdx) <= oneSnp.size()) << endl;
+                        // PRS.push_back(oneSnp[sampleIdx] * betaList[i]);
                     }
                     else{
                         PRS.push_back(0);
@@ -315,7 +398,7 @@ vector<float> BedFileReader::calculatePRS(vector<string> snpList, vector<float> 
                 int j = 0;
                 for (const int& sampleIdx : sampleList){
                     if (sampleIdx!=-1){
-                        cout << "oneSNP size: " << oneSnp.size() << ", sampleIdx: " << sampleIdx << "Isin: " << (static_cast<size_t>(sampleIdx) <= oneSnp.size()) << endl;
+                        // cout << "oneSNP size: " << oneSnp.size() << ", sampleIdx: " << sampleIdx << "Isin: " << (static_cast<size_t>(sampleIdx) <= oneSnp.size()) << endl;
                         //PRS[j] += oneSnp[sampleIdx] * betaList[i];
                     }
                     // PRS of NA remains 0
@@ -336,14 +419,14 @@ vector<float> BedFileReader::calculatePRS(vector<string> snpList, vector<float> 
             }
         }
     }
-    chrono::steady_clock::time_point end = chrono::steady_clock::now();
-    cout << "Time take to read some snps is " << chrono::duration_cast<chrono::milliseconds>(end - begin).count() << "[ms]" << endl;
+    // chrono::steady_clock::time_point end = chrono::steady_clock::now();
+    // cout << "Time take to read some snps is " << chrono::duration_cast<chrono::milliseconds>(end - begin).count() << "[ms]" << endl;
 
     return PRS;
 }
 
 vector<vector<float>> BedFileReader::calculatePRS_mat(vector<string> snpList, vector<vector<float>> betaAll, vector<int> sampleList = vector<int>()){
-    chrono::steady_clock::time_point begin = chrono::steady_clock::now();
+    // chrono::steady_clock::time_point begin = chrono::steady_clock::now();
     
     vector<int> oneSnp; 
     int models = betaAll.size();
@@ -366,7 +449,7 @@ vector<vector<float>> BedFileReader::calculatePRS_mat(vector<string> snpList, ve
                 for (const int& sampleIdx : sampleList){
                     if (sampleIdx!=-1){
                         if (static_cast<size_t>(sampleIdx) >= oneSnp.size() || j >= PRS[k].size()) {
-                            cerr << "Error: Index out of bounds in sampleList processing." << endl;
+                            Rcout << "Error: Index out of bounds in sampleList processing." << endl;
                             continue;
                         }
                         PRS[k][j] += oneSnp[sampleIdx] * betaAll[k][i];
@@ -380,7 +463,7 @@ vector<vector<float>> BedFileReader::calculatePRS_mat(vector<string> snpList, ve
             else{
                 for (size_t j = 0; j < oneSnp.size(); ++j){
                     if (j >= PRS[k].size()) {
-                        cerr << "Error: Index out of bounds in full sample processing." << endl;
+                        Rcout << "Error: Index out of bounds in full sample processing." << endl;
                         continue;
                     }
                     PRS[k][j] += oneSnp[j] * betaAll[k][i];
@@ -388,7 +471,7 @@ vector<vector<float>> BedFileReader::calculatePRS_mat(vector<string> snpList, ve
             }
         }
     }
-    chrono::steady_clock::time_point end = chrono::steady_clock::now();
+    // chrono::steady_clock::time_point end = chrono::steady_clock::now();
     // cout << "Time taken to calculate PRS matrix is " << chrono::duration_cast<chrono::milliseconds>(end - begin).count() << "[ms]" << endl;
 
     return PRS;
@@ -455,6 +538,7 @@ RCPP_MODULE(BedFileReader_module) {
         .method("findSnpIndex", &BedFileReader::findSnpIndex, "Find index of a single SNP")
         .method("readOneSnp", &BedFileReader::readOneSnp, "Read a single SNP based on index")
         .method("readSomeSnp", &BedFileReader::readSomeSnp, "Read multiple SNPs based on index")
+        // .method("readSomeSnpParallel", &BedFileReader::readSomeSnpParallel, "Read multiple SNPs based on index parallelly")
         .method("calculatePRS_mat", &BedFileReader::calculatePRS_mat, "Calculate PRS of multiple SNPs & betas");
     }
 

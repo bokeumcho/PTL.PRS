@@ -12,7 +12,7 @@ Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 
 // block_calculation_parallel
 List block_calculation_parallel(List blocks);
-RcppExport SEXP _PTL_PRS_c_block_calculation_parallel(SEXP blocksSEXP) {
+RcppExport SEXP _PTL_PRS_block_calculation_parallel(SEXP blocksSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -23,7 +23,7 @@ END_RCPP
 }
 // create_input_queue
 SEXP create_input_queue();
-RcppExport SEXP _PTL_PRS_c_create_input_queue() {
+RcppExport SEXP _PTL_PRS_create_input_queue() {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -33,7 +33,7 @@ END_RCPP
 }
 // push_input
 void push_input(SEXP queue_ptr, Rcpp::List input);
-RcppExport SEXP _PTL_PRS_c_push_input(SEXP queue_ptrSEXP, SEXP inputSEXP) {
+RcppExport SEXP _PTL_PRS_push_input(SEXP queue_ptrSEXP, SEXP inputSEXP) {
 BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< SEXP >::type queue_ptr(queue_ptrSEXP);
@@ -44,7 +44,7 @@ END_RCPP
 }
 // finish_queue
 void finish_queue(SEXP queue_ptr);
-RcppExport SEXP _PTL_PRS_c_finish_queue(SEXP queue_ptrSEXP) {
+RcppExport SEXP _PTL_PRS_finish_queue(SEXP queue_ptrSEXP) {
 BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< SEXP >::type queue_ptr(queue_ptrSEXP);
@@ -53,14 +53,13 @@ BEGIN_RCPP
 END_RCPP
 }
 // block_calculation_parallel_streamed
-List block_calculation_parallel_streamed(SEXP queue_ptr, int n_threads);
-RcppExport SEXP _PTL_PRS_c_block_calculation_parallel_streamed(SEXP queue_ptrSEXP, SEXP n_threadsSEXP) {
+List block_calculation_parallel_streamed(SEXP queue_ptr);
+RcppExport SEXP _PTL_PRS_block_calculation_parallel_streamed(SEXP queue_ptrSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< SEXP >::type queue_ptr(queue_ptrSEXP);
-    Rcpp::traits::input_parameter< int >::type n_threads(n_threadsSEXP);
-    rcpp_result_gen = Rcpp::wrap(block_calculation_parallel_streamed(queue_ptr, n_threads));
+    rcpp_result_gen = Rcpp::wrap(block_calculation_parallel_streamed(queue_ptr));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -68,16 +67,16 @@ END_RCPP
 RcppExport SEXP _rcpp_module_boot_BedFileReader_module();
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_PTL_PRS_c_block_calculation_parallel", (DL_FUNC) &_PTL_PRS_c_block_calculation_parallel, 1},
-    {"_PTL_PRS_c_create_input_queue", (DL_FUNC) &_PTL_PRS_c_create_input_queue, 0},
-    {"_PTL_PRS_c_push_input", (DL_FUNC) &_PTL_PRS_c_push_input, 2},
-    {"_PTL_PRS_c_finish_queue", (DL_FUNC) &_PTL_PRS_c_finish_queue, 1},
-    {"_PTL_PRS_c_block_calculation_parallel_streamed", (DL_FUNC) &_PTL_PRS_c_block_calculation_parallel_streamed, 2},
+    {"_PTL_PRS_block_calculation_parallel", (DL_FUNC) &_PTL_PRS_block_calculation_parallel, 1},
+    {"_PTL_PRS_create_input_queue", (DL_FUNC) &_PTL_PRS_create_input_queue, 0},
+    {"_PTL_PRS_push_input", (DL_FUNC) &_PTL_PRS_push_input, 2},
+    {"_PTL_PRS_finish_queue", (DL_FUNC) &_PTL_PRS_finish_queue, 1},
+    {"_PTL_PRS_block_calculation_parallel_streamed", (DL_FUNC) &_PTL_PRS_block_calculation_parallel_streamed, 1},
     {"_rcpp_module_boot_BedFileReader_module", (DL_FUNC) &_rcpp_module_boot_BedFileReader_module, 0},
     {NULL, NULL, 0}
 };
 
-RcppExport void R_init_PTL_PRS_c(DllInfo *dll) {
+RcppExport void R_init_PTL_PRS(DllInfo *dll) {
     R_registerRoutines(dll, NULL, CallEntries, NULL, NULL);
     R_useDynamicSymbols(dll, FALSE);
 }

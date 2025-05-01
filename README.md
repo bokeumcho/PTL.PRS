@@ -5,10 +5,10 @@ This R package helps users to construct multi-ethnic polygenic risk score (PRS) 
 This package contains a main function: `PTL_PRS_train` for train, `PTL_PRS_test` for test, and `pseudo_split` for pseudo splitting.
 
 ## Installation
-`PTL.PRS` requires the software 'plink' as well as the following R packages:  `data.table`, `lassosum`, `Rcpp` and `parallel`. Install them by: 
+`PTL.PRS` requires the software 'plink' as well as the following R packages:  `data.table`, `Rcpp`, `RcppParallel` and `parallel`. Install them by: 
 
 ```r
-install.packages(c("data.table", "lassosum", "parallel", "Rcpp"), dependencies=TRUE)
+install.packages(c("data.table", "RcppParallel", "parallel", "Rcpp"), dependencies=TRUE)
 ```
 
 If you have `devtools`, you can type: 
@@ -87,14 +87,23 @@ for the latest development version. Or you can clone the latest development vers
    The file path to the ped file for test samples, which contains information such as FID, IID, phenotype (Y), sample indices from the .fam file of `plink_file` (fam_idx), and covariate columns if needed. Note that the file only requires samples for test.
 
 2. `by_chr` (optional):
-   Logical; if TRUE, read and compute matrix by chromosomees to avoid memory burden. Defaults to FALSE.
+   Logical; if TRUE, read and compute matrix by chromosomes to avoid memory burden. Defaults to FALSE.
 
 3. `plink_file`:
    The prefix of the PLINK file containing the test data. There is no need to create a separate PLINK file for test samples, as the package automatically reads only the samples specified in `ped_test_file`. 
 
-   **Note:** If `by_chr` is set to TRUE, ensure that your PLINK files are split by chromosomes and exclude the chromosome number from the prefix. For example, if the full prefix for chromosome 1 is ukb_imp_chr1, use ukb_imp_chr as the input. The package will append the appropriate chromosome numbers during processing automatically.
+4. `plink_etc`:
+   Extra string in the prefix of the PLINK file between chromosome number and file extension. No need to specify if not necessary or `by_chr`=False. Defaults to ''.
 
-`outfile`, `Ytype`, `Covar_name`,`Y_name` are the same as **PTL_PRS_train**
+   **Note:** If `by_chr` is set to TRUE, ensure that your PLINK files are split by chromosomes and exclude the chromosome number from the prefix. For example, if the full prefix for chromosome 1 is ukb_imp_chr1_v1, `plink_file` = 'ukb_imp_chr', `plink_etc` = '_v3'. The package will append the appropriate chromosome numbers during processing automatically.
+
+5. `Covar_name`: A vector of names of covariates we need to adjust in the model, such as c("Sex","Age"). Note that all names must corrspond to the columns in the ped file.
+
+6. `Y_name`: The name of Y in the model, such as "LDL". Note that the Y name must corrspond to a column in the ped file.
+
+7. `Ytype`: The type of Y should be either "C"(continuous) or "B"(binary).
+
+`outfile` is the same as **PTL_PRS_train**
 
 ## Outputs of PTL_PRS
 1. `best.beta`: 
@@ -123,7 +132,6 @@ You can download the files in Dropbox folder here (https://www.dropbox.com/scl/f
 
 ```r
 library(data.table)
-library(lassosum)
 library(parallel)
 library(Rcpp)
 library(ROCR)

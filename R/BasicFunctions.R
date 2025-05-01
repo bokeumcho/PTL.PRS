@@ -1,14 +1,25 @@
-library(data.table)
-library(lassosum)
-library(Matrix)
-library(ROCR)
-library(parallel)
+# library(data.table)
+# library(lassosum)
+# library(Matrix)
+# library(ROCR)
+# library(parallel)
 
+#' @import data.table ROCR parallel
+#' 
 PTL_PRS_test <- function(plink_file, by_chr, ped_test_file, outfile, Ytype, Covar_name,Y_name, plink_etc=''){
-    #' Test performance of PTL-PRS
+    #' @title Function to test performance of PTL-PRS using PLINK file
+    #' @param plink_file Prefix of the PLINK file containing the test data
+    #' @param by_chr If TRUE, read and compute matrix by chromosomes
+    #' @param ped_test_file The file path to the ped file for test sample
+    #' @param outfile Prefix for the output file location
+    #' @param Ytype Type of phenotype Y, either "C"(continuous) or "B"(binary)
+    #' @param Covar_name A vector of names of covariates we need to adjust in the model, such as c("Sex","Age")
+    #' @param Y_name The name of Y in the model
+    #' @param plink_etc Suffix of the PLINK file between chromosome number and file extension
+    
     #' @export
-    #' 
-  ped_test = fread(ped_test_file,header=T, fill=TRUE)
+
+    ped_test = fread(ped_test_file,header=T, fill=TRUE)
 
     best.beta = fread(paste0(outfile,"_best.beta.txt")) #out.beta$best.beta 
     best.param = fread(paste0(outfile,"_best.param.txt")) #out.beta$best.param 
@@ -69,6 +80,12 @@ PTL_PRS_test <- function(plink_file, by_chr, ped_test_file, outfile, Ytype, Cova
 
 PTL_PRS_test_pseudo <- function(best.beta, best.param, sum_stats_target_test, sum_stats, ref_file){
     #' Test performance of PTL-PRS using pseudo test summary
+    #' @param best.beta A list of beta coefficient vectors, containing baseline and the best set
+    #' @param best.param A learning rate used with the best beta
+    #' @param sum_stats_target_test Target summary statistics used for testing
+    #' @param sum_stats Reference summary statistics (used in training)
+    #' @param ref_file Path to the reference genotype PLINK file
+
     #' @export
     #' 
 
@@ -83,7 +100,7 @@ PTL_PRS_test_pseudo <- function(best.beta, best.param, sum_stats_target_test, su
         sum_stats_target_test$beta = as.numeric(sum_stats_target_test$beta)
         sum_stats_target_test$p = as.numeric(sum_stats_target_test$p)
 
-        sum_stats_target_test$cor=lassosum::p2cor(p = sum_stats_target_test$p, n = median(sum_stats_target_test$N,na.rm=T), sign=sum_stats_target_test$beta)
+        sum_stats_target_test$cor=p2cor(p = sum_stats_target_test$p, n = median(sum_stats_target_test$N,na.rm=T), sign=sum_stats_target_test$beta)
     }
 
     # allele flipping (only cor, not Beta, needs flipping)
@@ -104,8 +121,11 @@ PTL_PRS_test_pseudo <- function(best.beta, best.param, sum_stats_target_test, su
     BedFileReader_ref <- new( BedFileReader, paste0(ref_file,".fam"), paste0(ref_file,".bim"), paste0(ref_file,".bed"))
     result = try(BedFileReader_ref$snp_index_func(), silent=TRUE)
 
-    geno_ref = readSomeSnp(sum_stats_target_test1$SNP, BedFileReader = BedFileReader_ref)
-    geno_ref = scale(geno_ref)
+    # geno_ref = readSomeSnp(sum_stats_target_test1$SNP, BedFileReader = BedFileReader_ref)
+    geno_ref = BedFileReader_ref$readSomeSnp(sum_stats_target_test1$SNP, sampleList=integer(0))
+    geno_ref <- do.call(cbind, geno_ref)
+   
+   geno_ref = scale(geno_ref)
 
     betaRho.byL = t(best.beta1)%*%sum_stats_target_test1$cor
     betaG.byL = geno_ref%*%as.matrix(best.beta1)
@@ -116,6 +136,12 @@ PTL_PRS_test_pseudo <- function(best.beta, best.param, sum_stats_target_test, su
 
 PTL_PRS_test_pseudo_list <- function(beta.list, sum_stats_target_test, sum_stats, ref_file){
     #' Test performance of PTL-PRS using pseudo test summary
+   
+    #' @param beta.list A list of beta coefficient vectors trained with all learning rates
+    #' @param sum_stats_target_test Target summary statistics used for testing
+    #' @param sum_stats Reference summary statistics (used in training)
+    #' @param ref_file Path to the reference genotype PLINK file
+
     #' @export
     #' 
 
@@ -131,7 +157,7 @@ PTL_PRS_test_pseudo_list <- function(beta.list, sum_stats_target_test, sum_stats
         sum_stats_target_test$beta = as.numeric(sum_stats_target_test$beta)
         sum_stats_target_test$p = as.numeric(sum_stats_target_test$p)
 
-        sum_stats_target_test$cor=lassosum::p2cor(p = sum_stats_target_test$p, n = median(sum_stats_target_test$N,na.rm=T), sign=sum_stats_target_test$beta)
+        sum_stats_target_test$cor=p2cor(p = sum_stats_target_test$p, n = median(sum_stats_target_test$N,na.rm=T), sign=sum_stats_target_test$beta)
     }
 
     # allele flipping (only cor, not Beta, needs flipping)
@@ -153,7 +179,10 @@ PTL_PRS_test_pseudo_list <- function(beta.list, sum_stats_target_test, sum_stats
     BedFileReader_ref <- new( BedFileReader, paste0(ref_file,".fam"), paste0(ref_file,".bim"), paste0(ref_file,".bed"))
     result = try(BedFileReader_ref$snp_index_func(), silent=TRUE)
 
-    geno_ref = readSomeSnp(sum_stats_target_test1$SNP, BedFileReader = BedFileReader_ref)
+    # geno_ref = readSomeSnp(sum_stats_target_test1$SNP, BedFileReader = BedFileReader_ref)
+    geno_ref = BedFileReader_ref$readSomeSnp(sum_stats_target_test1$SNP, sampleList=integer(0))
+    geno_ref <- do.call(cbind, geno_ref)
+
     geno_ref = scale(geno_ref)
 
     betaRho.byL = t(beta.list1)%*%sum_stats_target_test1$cor
@@ -168,7 +197,7 @@ PRStr_main_check_pv<-function(ref_file, sum_stats_file,target_sumstats_file, sub
 	if (file.exists(paste0(ref_file,".bim")) & file.exists(paste0(ref_file,".bed")) & file.exists(paste0(ref_file,".fam"))){} else {out1="The ref file doesn't exist!"}
 
 	if (!file.exists(sum_stats_file)){out1="The summary statistic file does not exist!"} else {
-		temp=fread(sum_stats_file,nrow=1)
+		temp=fread(sum_stats_file,nrows=1)
 		if (ncol(temp)==4){
 			if (sum(colnames(temp) %in% c("V1","V2","V3","V4"))==4){} else{
 				if (sum(colnames(temp) %in% c("SNP","CHR","A1","Beta"))==4){} else {
@@ -189,7 +218,7 @@ PRStr_main_check_pv<-function(ref_file, sum_stats_file,target_sumstats_file, sub
     # need pseudo summ generation
     if (!is.null(target_sumstats_file)){
         if (!file.exists(target_sumstats_file)){out1="The target summary statistic file does not exist!"} else {
-            temp=fread(target_sumstats_file,nrow=1)
+            temp=fread(target_sumstats_file,nrows=1)
             if (ncol(temp)==4 | ncol(temp)==5){
                 if ("cor" %in% colnames(temp)){
                     if (sum(colnames(temp) %in% c("SNP", "A1", "cor", "N"))==4){} else{
@@ -221,7 +250,7 @@ PRStr_main_check_pv<-function(ref_file, sum_stats_file,target_sumstats_file, sub
     # no pseudo summ generation
     else {
         if (!file.exists(target_sumstats_train_file)){out1="The target summary statistic train file does not exist!"} else {
-        	temp=fread(target_sumstats_train_file,nrow=1)
+        	temp=fread(target_sumstats_train_file,nrows=1)
             if (ncol(temp)==4 | ncol(temp)==5){
                 if ("cor" %in% colnames(temp)){
                     if (sum(colnames(temp) %in% c("SNP", "A1", "cor", "N"))==4){} else{
@@ -245,7 +274,7 @@ PRStr_main_check_pv<-function(ref_file, sum_stats_file,target_sumstats_file, sub
         }
 
         if (!file.exists(target_sumstats_val_file)){out1="The target summary statistic validation file does not exist!"} else {
-        	temp=fread(target_sumstats_val_file,nrow=1)
+        	temp=fread(target_sumstats_val_file,nrows=1)
             if (ncol(temp)==4 | ncol(temp)==5){
                 if ("cor" %in% colnames(temp)){
                     if (sum(colnames(temp) %in% c("SNP", "A1", "cor", "N"))==4){} else{
@@ -343,6 +372,11 @@ return(BedFileReaders)
 #### for TL-PRS ####
 ##calculate nagelkerke R2 for binary phenotypes
 nagelkerke<-function (fit, null = NULL, restrictNobs = FALSE){
+    #' @importFrom stats logLik
+    #' @importFrom stats df.residual
+    #' @importFrom stats nobs
+    #' @importFrom stats update
+    
     TOGGLE = (class(fit)[1] == "lm" | class(fit)[1] == "gls" |
         class(fit)[1] == "lme" | class(fit)[1] == "glm" | class(fit)[1] ==
         "negbin" | class(fit)[1] == "zeroinfl" | class(fit)[1] ==
@@ -459,7 +493,8 @@ nagelkerke<-function (fit, null = NULL, restrictNobs = FALSE){
 
 ##Generate logitic regression results for binary phenotype
 logistic_result_generator<-function(PRS,ped,Covar_name,Y_name){
-        # datatemp2=merge(PRS,ped,by.x=c("FID","IID"),by.y=c("FID","IID"))
+    #' @importFrom stats glm
+    # datatemp2=merge(PRS,ped,by.x=c("FID","IID"),by.y=c("FID","IID"))
 	datatemp2 = cbind(ped,PRS); colnames(datatemp2)[ncol(datatemp2)] = 'SCORESUM'
   	datatemp2$PRS=scale(datatemp2$SCORESUM, center = TRUE, scale = TRUE)
 	args=gsub(",","+",toString(Covar_name))
@@ -476,6 +511,9 @@ logistic_result_generator<-function(PRS,ped,Covar_name,Y_name){
 
 ##Generate linear regression results for continuous phenotype
 linear_result_generator<-function(PRS,ped,Covar_name,Y_name){
+    #' @importFrom stats confint
+    #' @importFrom stats lm
+    #' 
 	# datatemp2=merge(PRS,ped,by.x=c("FID","IID"),by.y=c("FID","IID"))
 	datatemp2 = cbind(ped,PRS); colnames(datatemp2)[ncol(datatemp2)] = 'SCORESUM'
     datatemp2$PRS=scale(datatemp2$SCORESUM, center = TRUE, scale = TRUE)
@@ -597,4 +635,25 @@ splitgenome2<-function (CHR, POS, ref.CHR, ref.breaks, details = T, right = TRUE
     }
    out.item=list(results,Details)
    return(out.item)
+}
+
+download_read_LDblocks <- function(LDBlocks) {
+  #' @importFrom utils download.file
+
+# Construct the raw GitHub URL
+  base_url <- "https://raw.githubusercontent.com/tshmak/lassosum/master/inst/data"
+  file_url <- sprintf("%s/Berisa.%s.bed", base_url, LDBlocks)
+
+  # Temporary file path
+  tmpfile <- tempfile(fileext = ".bed")
+
+  # Download the file
+  tryCatch({
+    download.file(file_url, tmpfile, quiet = TRUE)
+    LDblocks <- data.table::fread(tmpfile, header = TRUE)
+    return(LDblocks)
+  }, error = function(e) {
+    stop(sprintf("Failed to download LD blocks for population '%s'.\nURL tried: %s\nError: %s",
+                 LDBlocks, file_url, e$message))
+  })
 }
