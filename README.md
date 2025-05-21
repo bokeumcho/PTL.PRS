@@ -95,7 +95,7 @@ for the latest development version. Or you can clone the latest development vers
 4. `plink_etc`:
    Extra string in the prefix of the PLINK file between chromosome number and file extension. No need to specify if not necessary or `by_chr`=False. Defaults to ''.
 
-   **Note:** If `by_chr` is set to TRUE, ensure that your PLINK files are split by chromosomes and exclude the chromosome number from the prefix. For example, if the full prefix for chromosome 1 is ukb_imp_chr1_v1, `plink_file` = 'ukb_imp_chr', `plink_etc` = '_v3'. The package will append the appropriate chromosome numbers during processing automatically.
+   **Note:** If `by_chr` is set to TRUE, ensure that your PLINK files are split by chromosomes and exclude the chromosome number from the prefix. For example, if the full prefix for chromosome 1 is ukb_imp_chr1_v1, `plink_file` = 'ukb_imp_chr', `plink_etc` = '_v1'. The package will append the appropriate chromosome numbers during processing automatically.
 
 5. `Covar_name`: A vector of names of covariates we need to adjust in the model, such as c("Sex","Age"). Note that all names must corrspond to the columns in the ped file.
 
