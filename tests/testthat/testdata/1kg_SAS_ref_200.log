@@ -1,0 +1,31 @@
+PLINK v1.90b7 64-bit (16 Jan 2023)
+Options in effect:
+  --bfile /media/leelabsg-storage1/bokeum/PTL.PRS.c/tests/testthat/Example_data_PTLPRS/1kg_SAS_ref
+  --extract /media/leelabsg-storage1/bokeum/PTL.PRS.c/tests/testthat/CRAN_data/snpnames_200.txt
+  --make-bed
+  --out /media/leelabsg-storage1/bokeum/PTL.PRS.c/tests/testthat/CRAN_data/1kg_SAS_ref_200
+
+Hostname: leelabsg01
+Working directory: /media/leelabsg-storage1/bokeum/PTL.PRS.c
+Start time: Wed Apr  9 23:48:29 2025
+
+Random number seed: 1744210109
+257857 MB RAM detected; reserving 128928 MB for main workspace.
+613839 variants loaded from .bim file.
+200 people (103 males, 97 females) loaded from .fam.
+--extract: 202 variants remaining.
+Using 1 thread (no multithreaded calculations invoked).
+Before main variant filters, 171 founders and 29 nonfounders present.
+Calculating allele frequencies... done.
+Total genotyping rate is exactly 1.
+202 variants and 200 people pass filters and QC.
+Note: No phenotypes present.
+--make-bed to
+/media/leelabsg-storage1/bokeum/PTL.PRS.c/tests/testthat/CRAN_data/1kg_SAS_ref_200.bed
++
+/media/leelabsg-storage1/bokeum/PTL.PRS.c/tests/testthat/CRAN_data/1kg_SAS_ref_200.bim
++
+/media/leelabsg-storage1/bokeum/PTL.PRS.c/tests/testthat/CRAN_data/1kg_SAS_ref_200.fam
+... done.
+
+End time: Wed Apr  9 23:48:30 2025
