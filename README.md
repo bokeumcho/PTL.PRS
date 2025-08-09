@@ -17,6 +17,12 @@ install_github("bokeumcho/PTL.PRS")
 ```
 for the latest development version. Or you can clone the latest development version here and install yourself using `devtools`. 
 
+### Download LD Reference Panels
+
+LD reference panels for multiple ancestries are available via our Zenodo upload.  
+These panels are derived from **1000 Genomes Project Phase 3** samples, lifted over to **GRCh38** coordinates, and packaged in PLINK binary format.
+
+[Access the LD reference panels on Zenodo](https://zenodo.org/records/16785891?token=eyJhbGciOiJIUzUxMiJ9.eyJpZCI6IjMxODJhMWY3LThmNGQtNGIxNC05NGJiLThlZGUxZjUyZjFjNiIsImRhdGEiOnt9LCJyYW5kb20iOiJmNDZkMTEyNDUxZWUzOTk5ZDBkNzA3ZjczMTgwN2YzMyJ9.HV-r3QLy3sGZsHgmVvUhYCiIp-b1Nz-c6Sz2kM64GYlwQRhT9RdsxGmKCvOMHM6jnFub6iTil7AwaF4k63lmEQ)
 
 ## Inputs of PTL_PRS
 ### Input Arguments for PTL_PRS_train
