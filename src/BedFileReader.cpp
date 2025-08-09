@@ -477,6 +477,52 @@ vector<vector<float>> BedFileReader::calculatePRS_mat(vector<string> snpList, ve
     return PRS;
 }
 
+vector<vector<float>> BedFileReader::calculatePRS_mat_opti(const vector<string>& snpList,
+                                const vector<vector<float>>& betaAll,
+                                const vector<int>& sampleList = vector<int>())
+{
+    const size_t models       = betaAll.size();
+    const size_t sampleCount  = sampleList.empty() ? m_line_counter
+                                                   : sampleList.size();
+    vector<vector<float>> PRS(models, vector<float>(sampleCount, 0.0f));
+
+    /* 1‑time preparation */
+    vector<int> snpIndices(snpList.size());
+    for (size_t i = 0; i < snpList.size(); ++i)
+        snpIndices[i] = snp_index.at(snpList[i]);
+
+    /* optional: build a compact list of valid sample indices */
+    vector<int> samplesOK;
+    if (!sampleList.empty()) {
+        samplesOK.reserve(sampleList.size());
+        for (int idx : sampleList)
+            if (idx != -1) samplesOK.push_back(idx);
+    }
+
+    /* main loop – SNP outermost */
+    // #pragma omp parallel for schedule(static)  // needs -fopenmp
+    for (size_t s = 0; s < snpIndices.size(); ++s) {
+        /* read genotype vector once */
+        vector<int> geno;                 // reuse if you make it thread‑local
+        geno = readOneSnp(snpIndices[s]);  // make a version filling an existing buffer
+
+        /* update every model */
+        for (size_t k = 0; k < models; ++k) {
+            const float beta = betaAll[k][s];
+
+            if (!sampleList.empty()) {
+                size_t j = 0;
+                for (int idx : samplesOK)
+                    PRS[k][j++] += geno[idx] * beta;
+            } else {
+                for (size_t j = 0; j < sampleCount; ++j)
+                    PRS[k][j] += geno[j] * beta;
+            }
+        }
+    }
+    return PRS;
+}
+
 void BedFileReader::decode_byte(int* bits_val, size_t * individuals_counter, int* temp_snp_info0, int* temp_snp_info1){
 	//int flag = 0;
 	for (int i = 0; i < 4; ++i)
@@ -539,7 +585,8 @@ RCPP_MODULE(BedFileReader_module) {
         .method("readOneSnp", &BedFileReader::readOneSnp, "Read a single SNP based on index")
         .method("readSomeSnp", &BedFileReader::readSomeSnp, "Read multiple SNPs based on index")
         // .method("readSomeSnpParallel", &BedFileReader::readSomeSnpParallel, "Read multiple SNPs based on index parallelly")
-        .method("calculatePRS_mat", &BedFileReader::calculatePRS_mat, "Calculate PRS of multiple SNPs & betas");
+        .method("calculatePRS_mat", &BedFileReader::calculatePRS_mat, "Calculate PRS of multiple SNPs & betas")
+        .method("calculatePRS_mat_opti", &BedFileReader::calculatePRS_mat_opti, "Calculate PRS of multiple SNPs & betas more optimized");
     }
 
 

@@ -148,7 +148,7 @@ PRStr_calculation_pv_es <- function(sum_stats_target_train, ref_file, LDblocks, 
   
   bim_sum_stats_val <- bim_sum_stats_val[, c("V2", "V5", "cor", "N")]
   colnames(bim_sum_stats_val)[1:2] <- c("SNP", "A1")
-  
+
   ref.extract <- rep(FALSE, nrow(ref.bim))
   ref.extract[bim_sum_stats$order] <- TRUE
   
@@ -264,9 +264,15 @@ results.chunk <- mclapply(
 )
 
 # Combine
-results.list <- do.call(c, results.chunk)
-  
+# results.list <- do.call(c, results.chunk)
+  results.list <- unlist(results.chunk, recursive = FALSE, use.names = FALSE)
+
+  stopifnot(lengths(results.list) == 3)
+
   beta.byL <- do.call(rbind, lapply(results.list, function(x) x[[1]]))
+  # cat('about beta.byL:', dim(beta.byL)) # 982900 15
+  # print(head(beta.byL))
+  
   cols_to_drop <- match(c("A1", "order"), colnames(beta.byL))
   beta.byL <- beta.byL[, -cols_to_drop, drop = FALSE]
   colnames(beta.byL)[1:3] <- c("SNP", "CHR", "A1")

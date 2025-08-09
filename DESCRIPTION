@@ -1,7 +1,7 @@
 Package: PTL.PRS
 Type: Package
 Title: Transfer Learning of Polygenic Risk Scores with Pseudo-Validation
-Version: 2.0.0
+Version: 1.0.0
 Date: 2025-04-06
 Authors@R: 
     person("Bokeum", "Cho", , "bokeum1810@snu.ac.kr", role = c("aut", "cre"))

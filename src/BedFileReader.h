@@ -34,6 +34,9 @@ class BedFileReader{
     void close_bed();
     vector<float> calculatePRS(vector<string> snpList, vector<float> betaList, vector<int> sampleList);
     vector<vector<float>> calculatePRS_mat(vector<string> snpList, vector<vector<float>> betaAll, vector<int> sampleList);
+    vector<vector<float>> calculatePRS_mat_opti(const vector<string>& snpList,
+                                const vector<vector<float>>& betaAll,
+                                const vector<int>& sampleList);
     
     private:
 

@@ -20,6 +20,9 @@ PTL_PRS_test <- function(plink_file, by_chr, ped_test_file, outfile, Ytype, Cova
     #' @export
 
     ped_test = fread(ped_test_file,header=T, fill=TRUE)
+    if ("ukb_idx" %in% colnames(ped_test)) {
+        setnames(ped_test, old = "ukb_idx", new = "fam_idx")  # in-place, no copy
+    }
 
     best.beta = fread(paste0(outfile,"_best.beta.txt")) #out.beta$best.beta 
     best.param = fread(paste0(outfile,"_best.param.txt")) #out.beta$best.param 
@@ -78,60 +81,375 @@ PTL_PRS_test <- function(plink_file, by_chr, ped_test_file, outfile, Ytype, Cova
   gc()
 }
 
-PTL_PRS_test_pseudo <- function(best.beta, best.param, sum_stats_target_test, sum_stats, ref_file){
-    #' Test performance of PTL-PRS using pseudo test summary
-    #' @param best.beta A list of beta coefficient vectors, containing baseline and the best set
-    #' @param best.param A learning rate used with the best beta
-    #' @param sum_stats_target_test Target summary statistics used for testing
-    #' @param sum_stats Reference summary statistics (used in training)
-    #' @param ref_file Path to the reference genotype PLINK file
-
+PTL_PRS_test_list <- function(plink_file, by_chr, ped_test_file, outfile, Ytype, Covar_name,Y_name, plink_etc=''){
+    #' @title Function to test performance of PTL-PRS using PLINK file
+    #' @param plink_file Prefix of the PLINK file containing the test data
+    #' @param by_chr If TRUE, read and compute matrix by chromosomes
+    #' @param ped_test_file The file path to the ped file for test sample
+    #' @param outfile Prefix for the output file location
+    #' @param Ytype Type of phenotype Y, either "C"(continuous) or "B"(binary)
+    #' @param Covar_name A vector of names of covariates we need to adjust in the model, such as c("Sex","Age")
+    #' @param Y_name The name of Y in the model
+    #' @param plink_etc Suffix of the PLINK file between chromosome number and file extension
+    
     #' @export
-    #' 
 
-    # prep inputs
-    best.beta1 = best.beta[,4:5]
-
-    colnames(sum_stats) = c('SNP', 'V2','V3','V4')
-
-    sum_stats_target_test=merge(sum_stats,sum_stats_target_test,by="SNP", sort=F)
-
-    if (('p' %in% colnames(sum_stats_target_test)) & (!'cor' %in% colnames(sum_stats_target_test))) {
-        sum_stats_target_test$beta = as.numeric(sum_stats_target_test$beta)
-        sum_stats_target_test$p = as.numeric(sum_stats_target_test$p)
-
-        sum_stats_target_test$cor=p2cor(p = sum_stats_target_test$p, n = median(sum_stats_target_test$N,na.rm=T), sign=sum_stats_target_test$beta)
+    ped_test = fread(ped_test_file,header=T, fill=TRUE)
+    if ("ukb_idx" %in% colnames(ped_test)) {
+        setnames(ped_test, old = "ukb_idx", new = "fam_idx")  # in-place, no copy
     }
 
-    # allele flipping (only cor, not Beta, needs flipping)
-    flag=which(sum_stats_target_test$V3 !=sum_stats_target_test$A1)
-    if (length(flag)>0){sum_stats_target_test$cor[flag]=-sum_stats_target_test$cor[flag]}
-    # CLUMPING
-    # sum(sum_stats_target$cor>=0.2)
+    beta.list = fread(paste0(outfile,"_beta.list.txt")) #out.beta$best.beta 
+    best.param = fread(paste0(outfile,"_best.param.txt")) #out.beta$best.param 
+
+    m = ncol(beta.list)
+    beta.list1 = beta.list[,c(1:3,9:..m)]
+    k = ncol(beta.list1)
+
+    if (by_chr) {
+    BedFileReaders <- BedFileReader_prep(plink_file, by_chr, unique(beta.list1$CHR), plink_etc)
+
+    ## by CHRs -- function!!
+    PRS.all <- matrix(0, nrow=dim(ped_test)[1], ncol=k-3) 
+
+    # Loop through each unique value in LDblocks2[[1]]
+    for (i in unique(beta.list$CHR)) {
+        # Calculate the partial result
+        partial_PRS <- Calculate_PRS_direct(
+            ped_test, 
+            beta.list1[beta.list1$CHR==i,1:3], 
+            beta.list1[beta.list1$CHR==i,4:k],
+            BedFileReaders[[i]],
+            plink_file, by_chr, plink_etc
+            )
+
+        # print(dim(partial_PRS))
+        # print(head(partial_PRS))
         
-    sum_stats_target_test=sum_stats_target_test[,c("SNP","V3","cor","N")]
+        # Add the partial result to the cumulative total
+        PRS.all <- PRS.all + partial_PRS  
+        rm(partial_PRS)
+        gc()
+    }
+    } else {
+        BedFileReaders <- BedFileReader_prep(plink_file, by_chr)
 
-    colnames(sum_stats_target_test)[2]="A1"; 
-    gc()
+        PRS.all <- Calculate_PRS_direct(
+            ped_test, 
+            beta.list1[,1:3], 
+            beta.list1[,4:k],
+            BedFileReaders,
+            plink_file, by_chr, plink_etc
+            )
+    }
 
-    # calculate
+#   PRS.all = cbind(ped_test[,c('FID','IID')],PRS.all)
+#   colnames(PRS.all)[3:4]=c("SCORESUM","SCORESUM")
+
+  write.table(PRS.all, file=paste0(outfile,"_PRS_test.txt"),row.names=F,quote=F,col.names=T)
+
+  out.item=data.frame("order"=NA,"R2"=NA,"auc"=NA)
+  for (flag in 1:ncol(PRS.all)){
+    out.item[flag,1]=flag
+
+  if (Ytype=="C"){
+      out.item[flag,2] = as.numeric(linear_result_generator(PRS.all[,flag],ped_test,Covar_name,Y_name))
+  } else {
+      out.item[flag,2] = as.numeric(logistic_result_generator(PRS.all[,flag],ped_test,Covar_name,Y_name))
+      pred = prediction(PRS.all[,flag], ped_test[,2])
+      perf = performance(pred, measure='tpr', x.measure='fpr')
+      auc = performance(pred, measure = "auc")
+      out.item[flag,3] = auc@y.values[[1]]
+  }
+  }
+
+    cat("===Test Results===============================================================================\n")
+    # cat("Baseline R2: ", base_R2, "\n Model R2: ", model_R2, '\n Best LR: ', best.param[[1]]/dim(best.beta)[1]) #, '\n best iter: ', best.params[2],'\n'
+    print(out.item)
+  gc()
+}
+
+PTL_PRS_test_list_opti <- function(plink_file, by_chr, ped_test_file, outfile, Ytype, Covar_name,Y_name, plink_etc=''){
+    #' @title Function to test performance of PTL-PRS using PLINK file
+    #' @param plink_file Prefix of the PLINK file containing the test data
+    #' @param by_chr If TRUE, read and compute matrix by chromosomes
+    #' @param ped_test_file The file path to the ped file for test sample
+    #' @param outfile Prefix for the output file location
+    #' @param Ytype Type of phenotype Y, either "C"(continuous) or "B"(binary)
+    #' @param Covar_name A vector of names of covariates we need to adjust in the model, such as c("Sex","Age")
+    #' @param Y_name The name of Y in the model
+    #' @param plink_etc Suffix of the PLINK file between chromosome number and file extension
+    
+    #' @export
+
+    ped_test = fread(ped_test_file,header=T, fill=TRUE)
+    if ("ukb_idx" %in% colnames(ped_test)) {
+        setnames(ped_test, old = "ukb_idx", new = "fam_idx")  # in-place, no copy
+    }
+
+    beta.list = fread(paste0(outfile,"_beta.list.txt")) #out.beta$best.beta 
+    # best.param = fread(paste0(outfile,"_best.param.txt")) #out.beta$best.param 
+
+    m = ncol(beta.list)
+    beta.list1 = beta.list[,c(1:3,9:..m)]
+    k = ncol(beta.list1)
+
+    if (by_chr) {
+    BedFileReaders <- BedFileReader_prep(plink_file, by_chr, unique(beta.list1$CHR), plink_etc)
+
+    ## by CHRs -- function!!
+    PRS.all <- matrix(0, nrow=dim(ped_test)[1], ncol=k-3) 
+
+    # Loop through each unique value in LDblocks2[[1]]
+    for (i in unique(beta.list$CHR)) {
+        # Calculate the partial result
+        partial_PRS <- Calculate_PRS_direct_opti(
+            ped_test, 
+            beta.list1[beta.list1$CHR==i,1:3], 
+            beta.list1[beta.list1$CHR==i,4:k],
+            BedFileReaders[[i]],
+            plink_file, by_chr, plink_etc
+            )
+
+        # print(dim(partial_PRS))
+        # print(head(partial_PRS))
+        
+        # Add the partial result to the cumulative total
+        PRS.all <- PRS.all + partial_PRS  
+        rm(partial_PRS)
+        gc()
+    }
+    } else {
+        BedFileReaders <- BedFileReader_prep(plink_file, by_chr)
+
+        PRS.all <- Calculate_PRS_direct_opti(
+            ped_test, 
+            beta.list1[,1:3], 
+            beta.list1[,4:k],
+            BedFileReaders,
+            plink_file, by_chr, plink_etc
+            )
+    }
+
+#   PRS.all = cbind(ped_test[,c('FID','IID')],PRS.all)
+#   colnames(PRS.all)[3:4]=c("SCORESUM","SCORESUM")
+
+  write.table(PRS.all, file=paste0(outfile,"_PRS_test.txt"),row.names=F,quote=F,col.names=T)
+
+  out.item=data.frame("order"=NA,"R2"=NA,"auc"=NA)
+  for (flag in 1:ncol(PRS.all)){
+    out.item[flag,1]=flag
+
+  if (Ytype=="C"){
+      out.item[flag,2] = as.numeric(linear_result_generator(PRS.all[,flag],ped_test,Covar_name,Y_name))
+  } else {
+      out.item[flag,2] = as.numeric(logistic_result_generator(PRS.all[,flag],ped_test,Covar_name,Y_name))
+      pred = prediction(PRS.all[,flag], ped_test[,2])
+      perf = performance(pred, measure='tpr', x.measure='fpr')
+      auc = performance(pred, measure = "auc")
+      out.item[flag,3] = auc@y.values[[1]]
+  }
+  }
+
+    cat("===Test Results===============================================================================\n")
+    # cat("Baseline R2: ", base_R2, "\n Model R2: ", model_R2, '\n Best LR: ', best.param[[1]]/dim(best.beta)[1]) #, '\n best iter: ', best.params[2],'\n'
+    print(out.item)
+  gc()
+}
+
+TL_PRS_test_list <- function(plink_file, by_chr, ped_test_file, outfile, Ytype, Covar_name,Y_name, plink_etc=''){
+    #' @title Function to test performance of PTL-PRS using PLINK file
+    #' @param plink_file Prefix of the PLINK file containing the test data
+    #' @param by_chr If TRUE, read and compute matrix by chromosomes
+    #' @param ped_test_file The file path to the ped file for test sample
+    #' @param outfile Prefix for the output file location
+    #' @param Ytype Type of phenotype Y, either "C"(continuous) or "B"(binary)
+    #' @param Covar_name A vector of names of covariates we need to adjust in the model, such as c("Sex","Age")
+    #' @param Y_name The name of Y in the model
+    #' @param plink_etc Suffix of the PLINK file between chromosome number and file extension
+    
+    #' @export
+
+    ped_test = fread(ped_test_file,header=T, fill=TRUE)
+    if ("ukb_idx" %in% colnames(ped_test)) {
+        setnames(ped_test, old = "ukb_idx", new = "fam_idx")  # in-place, no copy
+    }
+
+    beta.merge = as.data.frame(fread(paste0(outfile,"_best.beta.byLR.txt")))
+    beta.merge = beta.merge[,-4] #col beta.1202 (best index) duplicated
+
+    # add CHR col
+    ref.bim = fread("/media/leelabsg-storage1/bokeum/TLPRS/1kg_phase3/SAS/1kg_SAS_ALL.bim")
+    merge = merge(ref.bim, beta.merge, by.y='SNP',by.x='V2',sort=F)
+    beta.list = cbind(merge[,c('V2','A1','V1')],merge[,8:ncol(merge)])
+    colnames(beta.list)[c(1,3)] = c('SNP','CHR')
+    beta.list = beta.list[beta.list$CHR %in% 1:22,]
+    beta.list = beta.list[!duplicated(beta.list$SNP),]
+    beta.list$CHR = as.numeric(as.character(beta.list$CHR))
+
+    k = ncol(beta.list)
+
+    if (by_chr) {
+    BedFileReaders <- BedFileReader_prep(plink_file, by_chr, unique(beta.list$CHR), plink_etc)
+
+    ## by CHRs -- function!!
+    PRS.all <- matrix(0, nrow=dim(ped_test)[1], ncol=k-3) 
+
+    # Loop through each unique value in LDblocks2[[1]]
+    for (i in unique(beta.list$CHR)) {
+        # Calculate the partial result
+        partial_PRS <- Calculate_PRS_direct_opti(
+            ped_test, 
+            beta.list[beta.list$CHR==i,1:3], 
+            beta.list[beta.list$CHR==i,4:k],
+            BedFileReaders[[i]],
+            plink_file, by_chr, plink_etc
+            )
+
+        # print(dim(partial_PRS))
+        # print(head(partial_PRS))
+        
+        # Add the partial result to the cumulative total
+        PRS.all <- PRS.all + partial_PRS  
+        rm(partial_PRS)
+        gc()
+    }
+    } else {
+        BedFileReaders <- BedFileReader_prep(plink_file, by_chr)
+
+        PRS.all <- Calculate_PRS_direct_opti(
+            ped_test, 
+            beta.list[,1:3], 
+            beta.list[,4:k],
+            BedFileReaders,
+            plink_file, by_chr, plink_etc
+            )
+    }
+
+#   PRS.all = cbind(ped_test[,c('FID','IID')],PRS.all)
+#   colnames(PRS.all)[3:4]=c("SCORESUM","SCORESUM")
+
+#   write.table(PRS.all, file=paste0(outfile,"_PRS_test.txt"),row.names=F,quote=F,col.names=T)
+
+  out.item=data.frame("order"=NA,"R2"=NA,"auc"=NA)
+  for (flag in 1:ncol(PRS.all)){
+    out.item[flag,1]=flag
+
+  if (Ytype=="C"){
+      out.item[flag,2] = as.numeric(linear_result_generator(PRS.all[,flag],ped_test,Covar_name,Y_name))
+  } else {
+      out.item[flag,2] = as.numeric(logistic_result_generator(PRS.all[,flag],ped_test,Covar_name,Y_name))
+      pred = prediction(PRS.all[,flag], ped_test[,2])
+      perf = performance(pred, measure='tpr', x.measure='fpr')
+      auc = performance(pred, measure = "auc")
+      out.item[flag,3] = auc@y.values[[1]]
+  }
+  }
+
+    cat("===Test Results===============================================================================\n")
+    # cat("Baseline R2: ", base_R2, "\n Model R2: ", model_R2, '\n Best LR: ', best.param[[1]]/dim(best.beta)[1]) #, '\n best iter: ', best.params[2],'\n'
+    print(out.item)
+  gc()
+}
+
+
+PTL_PRS_test_pseudo <- function(best.beta, best.param,
+                                sum_stats_target_test, sum_stats, ref_file,
+                                chunk_size = 50000) {
+  #' Test performance of PTL-PRS using pseudo test summary
+  #' @param best.beta    Data.frame / matrix with SNP plus at least 5 cols
+  #' @param best.param   learning rate (not used in chunking logic)
+  #' @param sum_stats_target_test  data.frame of test summary stats
+  #' @param sum_stats    data.frame of reference summary stats
+  #' @param ref_file     prefix of PLINK .fam/.bim/.bed files
+  #' @param chunk_size   number of SNPs to process per iteration
+  #' @export
+
+  # 1) PREP INPUTS & MERGE
+  best.beta1 <- as.matrix(best.beta[,4:5])   ## MODIFIED: force numeric matrix of weights
+  
+  sum_stats <- sum_stats[,c(1,3)] # SNP, CHR, A1, Beta
+  colnames(sum_stats) <- c('SNP','V3')  
+  sum_stats_target_test <- merge(sum_stats, sum_stats_target_test, by="SNP", sort=FALSE)
+  
+  if ('p' %in% names(sum_stats_target_test) && !'cor' %in% names(sum_stats_target_test)) {
+    sum_stats_target_test$beta <- as.numeric(sum_stats_target_test$beta)
+    sum_stats_target_test$p    <- as.numeric(sum_stats_target_test$p)
+    sum_stats_target_test$cor  <- p2cor(
+      p    = sum_stats_target_test$p,
+      n    = median(sum_stats_target_test$N, na.rm=TRUE),
+      sign = sum_stats_target_test$beta
+    )
+  }
+  
+  # allele flipping
+  flip_idx <- which(sum_stats_target_test$V3 != sum_stats_target_test$A1)
+  cat('flip_idx length:',length(flip_idx),'\n')
+
+  if (length(flip_idx)) {
+    sum_stats_target_test$cor[flip_idx] <- -sum_stats_target_test$cor[flip_idx]
+  }
+  
+  sum_stats_target_test <- sum_stats_target_test[, c("SNP","V3","cor","N")]
+  colnames(sum_stats_target_test)[2] <- "A1"
+  gc()
+  
+  # subset to SNPs present in best.beta
+#   keep_snps <- sum_stats_target_test$SNP %in% best.beta$SNP
+#   sum_stats_target_test1 <- sum_stats_target_test[keep_snps, ]
+#   best.beta1 <- best.beta1[keep_snps, , drop=FALSE]
     sum_stats_target_test1 = sum_stats_target_test[sum_stats_target_test$SNP %in% best.beta$SNP,]
     best.beta1 = best.beta1[best.beta$SNP %in% sum_stats_target_test$SNP,]
 
-    BedFileReader_ref <- new( BedFileReader, paste0(ref_file,".fam"), paste0(ref_file,".bim"), paste0(ref_file,".bed"))
-    result = try(BedFileReader_ref$snp_index_func(), silent=TRUE)
+  # 2) SET UP RHO-BASED NUMERATOR
+  betaRho.byL <- t(best.beta1) %*% sum_stats_target_test1$cor  ## MODIFIED
 
-    # geno_ref = readSomeSnp(sum_stats_target_test1$SNP, BedFileReader = BedFileReader_ref)
-    geno_ref = BedFileReader_ref$readSomeSnp(sum_stats_target_test1$SNP, sampleList=integer(0))
-    geno_ref <- do.call(cbind, geno_ref)
-   
-   geno_ref = scale(geno_ref)
+  # 3) INIT DENOMINATOR ACCUMULATOR
+  denom <- numeric(ncol(best.beta1))                           ## MODIFIED
 
-    betaRho.byL = t(best.beta1)%*%sum_stats_target_test1$cor
-    betaG.byL = geno_ref%*%as.matrix(best.beta1)
+  # 4) OPEN BED READER ONCE
+  BFR <- new(BedFileReader,
+             paste0(ref_file,".fam"),
+             paste0(ref_file,".bim"),
+             paste0(ref_file,".bed"))                           ## MODIFIED
+  try(BFR$snp_index_func(), silent=TRUE)
 
-    R2.byL = betaRho.byL^2 * median(sum_stats_target_test1$N) / colSums(betaG.byL^2) 
-    cat("baseline pseudo-R2: ", R2.byL[1,], "\n model pseudo-R2: ", R2.byL[2,], '\n best lr: ', best.param[[1]]/dim(best.beta)[1]) #, '\n best iter: ', best.params[2],'\n'
+  # 5) CHUNKED LOOP OVER SNPs
+  snp_list  <- sum_stats_target_test1$SNP                 ## MODIFIED
+  n_snps     <- length(snp_list)
+#   chunk_size <- n_snps %/% 100
+  cat('n_snps:',n_snps, 'chunk_size:',chunk_size,'\n')
+
+  for (start in seq(1, n_snps, by=chunk_size)) {
+    end        <- min(start + chunk_size - 1, n_snps)
+    chunk_snps <- snp_list[start:end]                     ## MODIFIED
+    chunk_b    <- best.beta1[start:end, , drop=FALSE]     ## MODIFIED
+
+    # read genotypes for this SNP chunk
+    geno_list <- BFR$readSomeSnp(chunk_snps, sampleList = integer(0))  
+    geno_mat  <- do.call(cbind, geno_list)               ## MODIFIED
+
+    # drop any monomorphic SNPs
+    sds        <- apply(geno_mat, 2, sd)                 ## MODIFIED
+    keep_idx   <- which(sds > 0)                         ## MODIFIED
+    if (length(keep_idx) == 0) next                       ## MODIFIED
+
+    geno_mat <- scale(geno_mat[, keep_idx, drop=FALSE])  ## MODIFIED
+    bh_chunk <- chunk_b[keep_idx, , drop=FALSE]          ## MODIFIED
+
+    # accumulate G·β squared
+    Gb      <- geno_mat %*% bh_chunk                     ## MODIFIED
+    denom   <- denom + colSums(Gb^2)                     ## MODIFIED
+  }
+
+  # 6) FINAL PSEUDO-R²
+  R2.byL <- (betaRho.byL^2 * median(sum_stats_target_test1$N)) / denom  ## MODIFIED
+
+  # 7) PRINT & RETURN
+  cat("baseline pseudo-R2:", R2.byL[1], "\n",
+      "model    pseudo-R2:", R2.byL[2], "\n",
+      "best lr:           ", best.param[[1]] / nrow(best.beta), "\n")
+  invisible(R2.byL)
 }
 
 PTL_PRS_test_pseudo_list <- function(beta.list, sum_stats_target_test, sum_stats, ref_file){
@@ -587,9 +905,51 @@ Calculate_PRS_direct <- function(ped_val, beta.info, beta.all, BedFileReader_new
     # G_val = BedFileReader_new$readSomeSnp(beta.info$SNP, ped_val$fam_idx) 
     # G_val <- do.call(cbind, G_val)
 
+    # PRS.all = as.matrix(G_val) %*% as.matrix(beta.all)
+
+    # print(head(beta.info))
+    # print(head(beta.all))
+    # print(head(ped_val))
+
     PRS.list = BedFileReader_new$calculatePRS_mat(beta.info$SNP, beta.all, ped_val$fam_idx) 
 
-    PRS.all <- cbind(base.beta = PRS.list[[1]], best.beta = PRS.list[[2]])
+    # PRS.all <- cbind(base.beta = PRS.list[[1]], best.beta = PRS.list[[2]])
+    PRS.all <- do.call(cbind, PRS.list)
+
+    return(PRS.all)
+}
+
+Calculate_PRS_direct_opti <- function(ped_val, beta.info, beta.all, BedFileReader_new, plink_file, by_chr, plink_etc=''){
+   if (by_chr) {
+    cat('calculate PRS for CHR',beta.info$CHR[1],'\n')
+
+    # allele-flipping
+    plink_bim = fread(paste0(plink_file, beta.info$CHR[1], plink_etc, '.bim')) # plink prefix + chrom number + .bim
+   } else {
+    plink_bim = fread(paste0(plink_file, '.bim'))
+   }
+
+    beta.info$order = 1:nrow(beta.info)
+    bim_sum_stats=merge(plink_bim, beta.info,by.x="V2",by.y="SNP",sort=FALSE)
+    bim_sum_stats = bim_sum_stats[!duplicated(bim_sum_stats$V2),]
+
+    flag=bim_sum_stats[bim_sum_stats$V6==bim_sum_stats$A1,'order'] # flipped. when ref=ref_ps, length(flag2)=0
+    if (length(flag)>0){  beta.all[flag[[1]],] = -beta.all[flag[[1]],]}
+
+    # G_val = readSomeSnp(beta.info$SNP, ped_val$fam_idx, BedFileReader=BedFileReader_new) 
+    # G_val = BedFileReader_new$readSomeSnp(beta.info$SNP, ped_val$fam_idx) 
+    # G_val <- do.call(cbind, G_val)
+
+    # PRS.all = as.matrix(G_val) %*% as.matrix(beta.all)
+
+    # print(head(beta.info))
+    # print(head(beta.all))
+    # print(head(ped_val))
+
+    PRS.list = BedFileReader_new$calculatePRS_mat_opti(beta.info$SNP, beta.all, ped_val$fam_idx) 
+
+    # PRS.all <- cbind(base.beta = PRS.list[[1]], best.beta = PRS.list[[2]])
+    PRS.all <- do.call(cbind, PRS.list)
 
     return(PRS.all)
 }
