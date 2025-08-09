@@ -24,6 +24,11 @@ These panels are derived from **1000 Genomes Project Phase 3** samples, lifted o
 
 [Access the LD reference panels on Zenodo](https://zenodo.org/records/16785891?token=eyJhbGciOiJIUzUxMiJ9.eyJpZCI6IjMxODJhMWY3LThmNGQtNGIxNC05NGJiLThlZGUxZjUyZjFjNiIsImRhdGEiOnt9LCJyYW5kb20iOiJmNDZkMTEyNDUxZWUzOTk5ZDBkNzA3ZjczMTgwN2YzMyJ9.HV-r3QLy3sGZsHgmVvUhYCiIp-b1Nz-c6Sz2kM64GYlwQRhT9RdsxGmKCvOMHM6jnFub6iTil7AwaF4k63lmEQ)
 
+Each ancestry is provided as a compressed archive (`.tar.gz`) containing:
+- `*.bed` — genotype data in PLINK binary format  
+- `*.bim` — SNP information (chromosome, position, alleles)  
+- `*.fam` — sample information  
+
 ## Inputs of PTL_PRS
 ### Input Arguments for PTL_PRS_train
 
