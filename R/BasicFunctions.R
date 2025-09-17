@@ -355,18 +355,18 @@ TL_PRS_test_list <- function(plink_file, by_chr, ped_test_file, outfile, Ytype, 
 
 PTL_PRS_test_pseudo <- function(best.beta, best.param,
                                 sum_stats_target_test, sum_stats, ref_file,
-                                chunk_size = 50000) {
+                                chunk_size = dim(best.beta)[1]) {
   #' Test performance of PTL-PRS using pseudo test summary
   #' @param best.beta    Data.frame / matrix with SNP plus at least 5 cols
-  #' @param best.param   learning rate (not used in chunking logic)
+  #' @param best.param   learning rate 
   #' @param sum_stats_target_test  data.frame of test summary stats
   #' @param sum_stats    data.frame of reference summary stats
   #' @param ref_file     prefix of PLINK .fam/.bim/.bed files
-  #' @param chunk_size   number of SNPs to process per iteration
+  #' @param chunk_size   Optional; number of SNPs to process per iteration
   #' @export
 
   # 1) PREP INPUTS & MERGE
-  best.beta1 <- as.matrix(best.beta[,4:5])   ## MODIFIED: force numeric matrix of weights
+  best.beta1 <- as.matrix(best.beta[,4:5])
   
   sum_stats <- sum_stats[,c(1,3)] # SNP, CHR, A1, Beta
   colnames(sum_stats) <- c('SNP','V3')  
@@ -384,7 +384,7 @@ PTL_PRS_test_pseudo <- function(best.beta, best.param,
   
   # allele flipping
   flip_idx <- which(sum_stats_target_test$V3 != sum_stats_target_test$A1)
-  cat('flip_idx length:',length(flip_idx),'\n')
+#   cat('flip_idx length:',length(flip_idx),'\n')
 
   if (length(flip_idx)) {
     sum_stats_target_test$cor[flip_idx] <- -sum_stats_target_test$cor[flip_idx]
@@ -395,55 +395,52 @@ PTL_PRS_test_pseudo <- function(best.beta, best.param,
   gc()
   
   # subset to SNPs present in best.beta
-#   keep_snps <- sum_stats_target_test$SNP %in% best.beta$SNP
-#   sum_stats_target_test1 <- sum_stats_target_test[keep_snps, ]
-#   best.beta1 <- best.beta1[keep_snps, , drop=FALSE]
     sum_stats_target_test1 = sum_stats_target_test[sum_stats_target_test$SNP %in% best.beta$SNP,]
     best.beta1 = best.beta1[best.beta$SNP %in% sum_stats_target_test$SNP,]
 
   # 2) SET UP RHO-BASED NUMERATOR
-  betaRho.byL <- t(best.beta1) %*% sum_stats_target_test1$cor  ## MODIFIED
+  betaRho.byL <- t(best.beta1) %*% sum_stats_target_test1$cor 
 
   # 3) INIT DENOMINATOR ACCUMULATOR
-  denom <- numeric(ncol(best.beta1))                           ## MODIFIED
+  denom <- numeric(ncol(best.beta1))                          
 
   # 4) OPEN BED READER ONCE
   BFR <- new(BedFileReader,
              paste0(ref_file,".fam"),
              paste0(ref_file,".bim"),
-             paste0(ref_file,".bed"))                           ## MODIFIED
+             paste0(ref_file,".bed"))                         
   try(BFR$snp_index_func(), silent=TRUE)
 
   # 5) CHUNKED LOOP OVER SNPs
-  snp_list  <- sum_stats_target_test1$SNP                 ## MODIFIED
+  snp_list  <- sum_stats_target_test1$SNP              
   n_snps     <- length(snp_list)
 #   chunk_size <- n_snps %/% 100
-  cat('n_snps:',n_snps, 'chunk_size:',chunk_size,'\n')
+#   cat('n_snps:',n_snps, 'chunk_size:',chunk_size,'\n')
 
   for (start in seq(1, n_snps, by=chunk_size)) {
     end        <- min(start + chunk_size - 1, n_snps)
-    chunk_snps <- snp_list[start:end]                     ## MODIFIED
-    chunk_b    <- best.beta1[start:end, , drop=FALSE]     ## MODIFIED
+    chunk_snps <- snp_list[start:end]                   
+    chunk_b    <- best.beta1[start:end, , drop=FALSE]   
 
     # read genotypes for this SNP chunk
     geno_list <- BFR$readSomeSnp(chunk_snps, sampleList = integer(0))  
-    geno_mat  <- do.call(cbind, geno_list)               ## MODIFIED
+    geno_mat  <- do.call(cbind, geno_list)              
 
     # drop any monomorphic SNPs
-    sds        <- apply(geno_mat, 2, sd)                 ## MODIFIED
-    keep_idx   <- which(sds > 0)                         ## MODIFIED
-    if (length(keep_idx) == 0) next                       ## MODIFIED
+    sds        <- apply(geno_mat, 2, sd)               
+    keep_idx   <- which(sds > 0)                        
+    if (length(keep_idx) == 0) next                      
 
-    geno_mat <- scale(geno_mat[, keep_idx, drop=FALSE])  ## MODIFIED
-    bh_chunk <- chunk_b[keep_idx, , drop=FALSE]          ## MODIFIED
+    geno_mat <- scale(geno_mat[, keep_idx, drop=FALSE]) 
+    bh_chunk <- chunk_b[keep_idx, , drop=FALSE]         
 
     # accumulate G·β squared
-    Gb      <- geno_mat %*% bh_chunk                     ## MODIFIED
-    denom   <- denom + colSums(Gb^2)                     ## MODIFIED
+    Gb      <- geno_mat %*% bh_chunk                    
+    denom   <- denom + colSums(Gb^2)                    
   }
 
   # 6) FINAL PSEUDO-R²
-  R2.byL <- (betaRho.byL^2 * median(sum_stats_target_test1$N)) / denom  ## MODIFIED
+  R2.byL <- (betaRho.byL^2 * median(sum_stats_target_test1$N)) / denom 
 
   # 7) PRINT & RETURN
   cat("baseline pseudo-R2:", R2.byL[1], "\n",
@@ -628,10 +625,10 @@ PRS_tuning_pv_byLR <- function(beta.byL, betaRho.byL, betaG.byL, lr_list, N_val)
     # }
 
     R2.byL = (N_val * betaRho.byL^2) / as.vector(betaG.byL %*% t(betaG.byL)) # colSums(betaG.byL^2)
+    lr_list = c(0, lr_list) # add 0 as baseline
 
   flag=which(R2.byL==max(R2.byL))[1]
-#   print(R2.byL)
-#   print(flag)
+
   out.final=list()
   out.final$best.param=lr_list[flag] / dim(beta.byL)[1]
   out.final$best.beta = as.data.frame(beta.byL)[,c(1:3,9,8+flag)] #SNP, CHR, A1, Beta2, best.beta
