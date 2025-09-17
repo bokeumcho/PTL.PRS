@@ -400,78 +400,12 @@ pseudo_split <- function(target_sumstats, subprop, ref_file_ps, tempfile,
   }
 }
 
-
-# pseudo_split <- function (target_sumstats, subprop, ref_file_ps, tempfile, random_seed=42) {
-#   #' Pseudo-split target summary statistics into train and validation set
-#   #' 
-#   #' @param target_sumstats Target summary statistics to split
-#   #' @param subprop Proportion of training samples from full samples
-#   #' @param ref_file_ps Prefix of PLINK file of the reference panel data in the target population
-#   #' @param tempfile Output path to save split summary statistics
-#   #' @param random_seed A random seed number to randomly (pseudo) split target summary statistics
-#   #' @export
-#   #' @returns Split summary statistics for train and validation sammples
-  
-#     ref_bim <- fread(paste0(ref_file_ps,'.bim'))
-
-#     target_sumstats_ref <- merge(target_sumstats, ref_bim, by.x='SNP', by.y='V2', sort=F)
-
-#     target_sumstats_ref = target_sumstats_ref[!duplicated(target_sumstats_ref$SNP),]
-#     target_sumstats_ref = target_sumstats_ref[which(target_sumstats_ref$V1 %in% 1:22),]
-#     ###
-#     if (('p' %in% colnames(target_sumstats_ref)) & (!'cor' %in% colnames(target_sumstats_ref))) {
-#       target_sumstats_ref$beta = as.numeric(target_sumstats_ref$beta)
-#       target_sumstats_ref$p = as.numeric(target_sumstats_ref$p)
-#       target_sumstats_ref$cor=p2cor(p = target_sumstats_ref$p, n = median(target_sumstats_ref$N,na.rm=T), sign=target_sumstats_ref$beta)
-#     }
-
-#     target_sumstats_ref$cor2=NA
-#     flag1=which(target_sumstats_ref$V5==target_sumstats_ref$A1)
-#     if (length(flag1)>0){  target_sumstats_ref$cor2[flag1]=target_sumstats_ref$cor[flag1]}
-#     flag2=which(target_sumstats_ref$V6==target_sumstats_ref$A1)
-#     if (length(flag2)>0){  target_sumstats_ref$cor2[flag2]=-target_sumstats_ref$cor[flag2]}
-
-#     target_sumstats_ref=target_sumstats_ref[which(! is.na(target_sumstats_ref$cor2)),c("SNP","V5","V6","cor2","N")] #Direction -> beta
-#     colnames(target_sumstats_ref)[2:3] = c('A1','A2') # A1: effect, A2: ref
-
-#     BedFileReader_ps <- new( BedFileReader, paste0(ref_file_ps,".fam"), paste0(ref_file_ps,".bim"), paste0(ref_file_ps,".bed"))
-#     result = try(BedFileReader_ps$snp_index_func(), silent=TRUE)
-    
-#     # X <- readSomeSnp(target_sumstats_ref$SNP, BedFileReader = BedFileReader_ps)
-#     X <- BedFileReader_ps$readSomeSnp(target_sumstats_ref$SNP, sampleList=integer(0))
-#     X <- do.call(cbind, X)
-
-#     flag=which(apply(X, 2, sd, na.rm = TRUE)!=0)
-
-#     X2 = X[,flag] #n*p
-
-#     n <- median(target_sumstats_ref$N)
-#     rhos <- target_sumstats_ref$cor2[flag]
-
-#     X2 <- scale(X2)
-
-#     set.seed(random_seed)
-#     g <- rnorm(dim(X2)[1], mean = 0, sd = 1)
-#     datarands <- t(as.matrix(X2)) %*% g * sqrt(1/dim(X2)[1] * (1-subprop)/subprop) 
-
-#     subrhos <- rhos + datarands*sqrt(1/n)
-#     restrhos <- (rhos - subrhos * subprop) / (1-subprop)
-
-#     snp_info <- target_sumstats_ref[flag,1:2]
-
-#     sub_mat <- cbind(snp_info, subrhos, rep(subprop * n, dim(snp_info)[1])); colnames(sub_mat)=c('SNP','A1','cor','N')
-#     rest_mat <- cbind(snp_info, restrhos, rep((1-subprop) * n, dim(snp_info)[1])); colnames(rest_mat)=c('SNP','A1','cor','N')
-  
-#     cat(paste0('Generated pseudo summary statistics with ',dim(sub_mat)[1], ' SNPs. \n'))
-#    return (list(sub_mat, rest_mat))
-# }
-
 PTL_PRS_train <- function(ref_file, sum_stats_file, target_sumstats_file,
                           subprop, ref_file_ps, LDblocks="EUR.hg19", outfile,
                           num_cores=1, target_sumstats_train_file=NULL,
                           target_sumstats_val_file=NULL, ps, pseudo_test,
-                          random_seed, lr_list, iter, patience, trace=FALSE,
-                          random_seed_test=70) {
+                          lr_list, iter, patience, trace=FALSE,
+                          random_seed=42, random_seed_test=70) {
     #' Run PTL-PRS
     #' 
     #' @param ref_file Prefix of PLINK file of the reference panel data in the target population.
@@ -525,24 +459,6 @@ if (ps){
   sum_stats_target <- merge(sum_stats,sum_stats_target,by="SNP", sort=F)  
   sum_stats_target <- sum_stats_target[,c('SNP','A1.y','beta','p','N')]; colnames(sum_stats_target)[2]='A1'
   
-  # target_sumstats <- pseudo_split(sum_stats_target, subprop, ref_file_ps, tempfile, random_seed=random_seed_test)
-
-  # if (!pseudo_test) {
-  #   target_sumstats_train <- target_sumstats[[1]]
-  #   target_sumstats_val <- target_sumstats[[2]]
-  # } else {
-  #   target_sumstats_test <- target_sumstats[[2]]
-
-  #   target_sumstats <- pseudo_split(target_sumstats[[1]], subprop, ref_file_ps, tempfile, random_seed)
-  #   target_sumstats_train <- target_sumstats[[1]]
-  #   target_sumstats_val <- target_sumstats[[2]]
-
-  #   write.table(target_sumstats_test, file=paste0(tempfile, '_target.test.summaries'), row.names=F,quote=F,col.names=T)
-  # }
-
-  # write.table(target_sumstats_train, file=paste0(tempfile, '_target.train.summaries'), row.names=F,quote=F,col.names=T)
-  # write.table(target_sumstats_val, file=paste0(tempfile, '_target.val.summaries'), row.names=F,quote=F,col.names=T)
-
   target_sumstats <- pseudo_split(sum_stats_target, subprop, ref_file_ps, tempfile, random_seed=random_seed, pseudo_test, test_seed=random_seed_test)
   target_sumstats_train <- target_sumstats[[1]]
   target_sumstats_val <- target_sumstats[[2]]
