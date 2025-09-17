@@ -5,13 +5,13 @@ This R package helps users to construct multi-ethnic polygenic risk score (PRS) 
 This package contains main functions: `PTL_PRS_train` for train, `PTL_PRS_run` for train with multiple seeds, `PTL_PRS_test_pseudo` and `PTL_PRS_test` for test, and `pseudo_split` for pseudo splitting.
 
 ## Core functions
-- `pseudo_split`
+- `pseudo_split`:
    Create pseudo train/val(/test) splits from target summary statistics, using the target reference panel for LD-aware sampling.
-- `PTL_PRS_train`
+- `PTL_PRS_train`:
    generates/reads pseudo splits, runs block-wise gradient descent, tunes LR on pseudo-validation, and writes outputs with outfile prefix.
-- `PTL_PRS_run`
+- `PTL_PRS_run`:
    Repeat the full training pipeline over multiple seeds, namespace outputs per seed, and return a summary.
-- `PTL_PRS_test_pseudo` or `PTL_PRS_test`
+- `PTL_PRS_test_pseudo` or `PTL_PRS_test`:
    Evaluate pseudo-R² or true-R² on held-out pseudo-test summaries, reporting baseline vs. adapted model performance.
 
 ## Installation
@@ -91,8 +91,7 @@ Each ancestry is provided as a compressed archive (`.tar.gz`) containing:
       6-6. `target_sumstats_val_file`: File path for target summary statistics for validation samples. 
 
 7. `lr_list` (optional): 
-   A grid of learning rates used for hyperparameter tuning. If not specified, a default value is calculated as:
-   - min(1, 10, 100, 1000 / n(SNPs), 1)
+   A grid of candidate learning-rate numerators for block-wise optimization. Each value is scaled by the number of SNPs used in training. If not specified, a default value is `c(1, 10, 100, 1000)` (which becomes `min(1, 10, 100, 1000 / n(SNPs), 1)` at run time).
 
 8. `iter` (optional): 
    Maximum number of iterations for early stopping during training. Default value is 100 if not specified.
