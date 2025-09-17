@@ -2,7 +2,17 @@
 
 This R package helps users to construct multi-ethnic polygenic risk score (PRS) using transfer learning when the individual level data is not available. It can help predict PRS of small group using summary statistics from larger group resources.
 
-This package contains a main function: `PTL_PRS_train` for train, `PTL_PRS_test` for test, and `pseudo_split` for pseudo splitting.
+This package contains main functions: `PTL_PRS_train` for train, `PTL_PRS_run` for train with multiple seeds, `PTL_PRS_test_pseudo` and `PTL_PRS_test` for test, and `pseudo_split` for pseudo splitting.
+
+## Core functions
+- `pseudo_split`
+   Create pseudo train/val(/test) splits from target summary statistics, using the target reference panel for LD-aware sampling.
+- `PTL_PRS_train`
+   generates/reads pseudo splits, runs block-wise gradient descent, tunes LR on pseudo-validation, and writes outputs with outfile prefix.
+- `PTL_PRS_run`
+   Repeat the full training pipeline over multiple seeds, namespace outputs per seed, and return a summary.
+- `PTL_PRS_test_pseudo` or `PTL_PRS_test`
+   Evaluate pseudo-R² or true-R² on held-out pseudo-test summaries, reporting baseline vs. adapted model performance.
 
 ## Installation
 `PTL.PRS` requires the software 'plink' as well as the following R packages:  `data.table`, `Rcpp`, `RcppParallel` and `parallel`. Install them by: 
@@ -69,12 +79,15 @@ Each ancestry is provided as a compressed archive (`.tar.gz`) containing:
       **Note:** This file is used to generate pseudo-summary statistics.
       
       6-2. `subprop`: Proportion of training samples in full summary statistics.
+
       6-3. `pseudo_test` (optional): Logical; if TRUE, pseudo-split target summary statistics into train, validation, and test sets as well.
+
       6-4. `random_seed` (optional): Random seed number for pseudo-splitting target summary statistics.
 
     - **When `ps` == FALSE**:
     
       6-5. `target_sumstats_train_file`: File path for target summary statistics for training samples. 
+      
       6-6. `target_sumstats_val_file`: File path for target summary statistics for validation samples. 
 
 7. `lr_list` (optional): 
@@ -92,6 +105,27 @@ Each ancestry is provided as a compressed archive (`.tar.gz`) containing:
 
 11. `trace` (optional): 
     Logical; if TRUE, print the stopped iteration for each LD block. Defaults to FALSE.
+
+### Input Arguments for PTL_PRS_run
+1. `cfg`: 
+   A configuration list created by **PTL_PRS_config(...)**. It carries all training inputs used by **PTL_PRS_train**.
+   - Required keys in `cfg`: `ref_file`, `ref_file_ps`, `sum_stats_file`, `target_sumstats_file`, `subprop`, `outfile`.
+   - Everything else mirrors the meanings described for **PTL_PRS_train** (above).
+
+2. `pseudo_test`:
+   Controls whether pseudo test splits are used in each run. Repetition is only activated when both `pseudo_test = TRUE` and `cfg$ps = TRUE` (see `num_repeat_ps`). If FALSE, the pipeline runs once (even if `num_repeat_ps` > 1).
+
+3. `num_repeat_ps`:
+   Number of independent seeds to run when doing pseudo-test evaluation.
+   - Effective only if `pseudo_test = TRUE` and `cfg$ps = TRUE`.
+   - When > 1, the entire **PTL_PRS_train** pipeline is repeated per seed.
+   - Each run writes to a unique prefix: `paste0(cfg$outfile, "_seed", <seed>)`.
+
+4. `random_seeds_repeat` (optional):
+   The exact set of unique, positive seeds to use across repeats. Length must equal num_repeat_ps.
+   - If not provided, seeds are sampled randomly.
+   - No recycling: a length mismatch raises an error.
+   - Each seed is passed as `random_seed` to **PTL_PRS_train** and used to suffix outfile (`..._seed<seed>`), ensuring file outputs don’t collide.
 
 ### Input Arguments for PTL_PRS_test
 1. `ped_test_file`:
