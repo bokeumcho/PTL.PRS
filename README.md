@@ -1,5 +1,8 @@
 # PTL.PRS
 
+This is the official codebase for PTL-PRS: an R package for transfer learning of polygenic risk scores with pseudovalidation.
+[![medRxiv](https://img.shields.io/badge/medRxiv-10.1101%2F2025.06.19.25329937v1-blue)](https://www.medrxiv.org/content/10.1101/2025.06.19.25329937v1)
+
 This R package helps users to construct multi-ethnic polygenic risk score (PRS) using transfer learning when the individual level data is not available. It can help predict PRS of small group using summary statistics from larger group resources.
 
 This package contains main functions: `PTL_PRS_train` for train, `PTL_PRS_run` for train with multiple seeds, `PTL_PRS_test_pseudo` and `PTL_PRS_test` for test, and `pseudo_split` for pseudo splitting.
