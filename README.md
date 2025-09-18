@@ -10,7 +10,7 @@ This package contains main functions: `PTL_PRS_train` for train, `PTL_PRS_run` f
 - `PTL_PRS_train`:
    generates/reads pseudo splits, runs block-wise gradient descent, tunes LR on pseudo-validation, and writes outputs with outfile prefix.
 - `PTL_PRS_run`:
-   Repeat the full training pipeline over multiple seeds, namespace outputs per seed, and return a summary.
+   Repeat the full training pipeline over multiple seeds, namespace outputs per seed, and return a summary. Use this when you want more robust pseudo-R² estimates: the pseudosplit–based metric has sampling variability, and repeating across seeds stabilizes results.
 - `PTL_PRS_test_pseudo` or `PTL_PRS_test`:
    Evaluate pseudo-R² or true-R² on held-out pseudo-test summaries, reporting baseline vs. adapted model performance.
 
@@ -33,6 +33,7 @@ LD reference panels for multiple ancestries are available via our Zenodo upload.
 These panels are derived from **1000 Genomes Project Phase 3** samples, lifted over to **GRCh38** coordinates, and packaged in PLINK binary format.
 
 [Access the LD reference panels on Zenodo](https://zenodo.org/records/16785891?token=eyJhbGciOiJIUzUxMiJ9.eyJpZCI6IjMxODJhMWY3LThmNGQtNGIxNC05NGJiLThlZGUxZjUyZjFjNiIsImRhdGEiOnt9LCJyYW5kb20iOiJmNDZkMTEyNDUxZWUzOTk5ZDBkNzA3ZjczMTgwN2YzMyJ9.HV-r3QLy3sGZsHgmVvUhYCiIp-b1Nz-c6Sz2kM64GYlwQRhT9RdsxGmKCvOMHM6jnFub6iTil7AwaF4k63lmEQ)
+ (DOI: 10.5281/zenodo.16786034)
 
 Each ancestry is provided as a compressed archive (`.tar.gz`) containing:
 - `*.bed` — genotype data in PLINK binary format  
@@ -111,16 +112,14 @@ Each ancestry is provided as a compressed archive (`.tar.gz`) containing:
    - Required keys in `cfg`: `ref_file`, `ref_file_ps`, `sum_stats_file`, `target_sumstats_file`, `subprop`, `outfile`.
    - Everything else mirrors the meanings described for **PTL_PRS_train** (above).
 
-2. `pseudo_test`:
-   Controls whether pseudo test splits are used in each run. Repetition is only activated when both `pseudo_test = TRUE` and `cfg$ps = TRUE` (see `num_repeat_ps`). If FALSE, the pipeline runs once (even if `num_repeat_ps` > 1).
-
-3. `num_repeat_ps`:
+2. `num_repeat_ps`:
    Number of independent seeds to run when doing pseudo-test evaluation.
-   - Effective only if `pseudo_test = TRUE` and `cfg$ps = TRUE`.
+   - Effective only if `cfg$ps = TRUE`.
    - When > 1, the entire **PTL_PRS_train** pipeline is repeated per seed.
    - Each run writes to a unique prefix: `paste0(cfg$outfile, "_seed", <seed>)`.
+   - **Recommendation**: start with the default value 5. If the standard error of relative accuracy across seeds (sd / sqrt(num_repeat_ps)) exceeds 2, increase `num_repeat_ps`.
 
-4. `random_seeds_repeat` (optional):
+3. `random_seeds_repeat` (optional):
    The exact set of unique, positive seeds to use across repeats. Length must equal num_repeat_ps.
    - If not provided, seeds are sampled randomly.
    - No recycling: a length mismatch raises an error.
@@ -171,67 +170,8 @@ Each ancestry is provided as a compressed archive (`.tar.gz`) containing:
 7. `target.test.summaries`:
    Pseudo summary statistics generated for test samples via `pseudo_split` function. (Only when `ps` and `pseudo_test` are both TRUE)
 
-## Example R script
-You can download the files in Dropbox folder here (https://www.dropbox.com/scl/fo/xsm783tn8mt7h0vovhjwa/ABSam-2r6i-f3P1ED_rTRuM?rlkey=7zgkyrvnzu8rc78tnuolmmtcw&st=s5amjvco&dl=0) to run the example R script.
-
-```r
-library(data.table)
-library(parallel)
-library(Rcpp)
-library(ROCR)
-
-library(PTL.PRS)
-
-setwd("bokeum/Example_data_PTLPRS")  ###setup your work path.
-
-ref_file = '1kg_SAS_ref' 
-ref_file_ps = '1kg_SAS_ref'
-
-num_cores = 2
-pseudo_test=FALSE
-random_seed=42
-
-sum_stats_file = 't2d_prscs_EUR.pgs' # extracted chromosome 22 SNPs from T2D PRS-cs weights file
-target_sumstats_file = 'tr_val.summaries' 
-
-LDblocks="ASN.hg19"
-outfile=paste0("Output_PTLPRS") 
-
-
-lr_list = c(1,10,100,1000)
-iter = 100
-
-ps=TRUE
-subprop=0.9
-
-patience = 3
-trace=TRUE
-
-target_sumstats_train_file = NULL 
-target_sumstats_val_file = NULL 
-
-system.time({
-    out.beta = PTL_PRS_train(ref_file, sum_stats_file, target_sumstats_file, subprop, ref_file_ps, LDblocks, outfile, num_cores, target_sumstats_train_file, target_sumstats_val_file, ps, pseudo_test, random_seed, lr_list, iter, patience, trace)
-})
-
-### TEST ###
-## for chromosome-wise calculation:
-# plink_file = '1kg_SAS_all_chr'
-# by_chr = TRUE
-
-plink_file = '1kg_SAS_all'
-by_chr = FALSE
-
-ped_test_file='test_ped.txt'
-
-Y_name="Y"
-Ytype='B'
-Covar_name="sex"
-
-system.time({
-PTL_PRS_test(plink_file, by_chr, ped_test_file, outfile, Ytype, Covar_name,Y_name)
-})
-```
+## Toy Example 
+You can download the example data and R scripts in Dropbox folder here (https://www.dropbox.com/scl/fo/xsm783tn8mt7h0vovhjwa/ABSam-2r6i-f3P1ED_rTRuM?rlkey=7zgkyrvnzu8rc78tnuolmmtcw&st=s5amjvco&dl=0). 
 
 ## Support
 If there are any further questions or problems with running or installing `PTL.PRS`, please do email me at <bokeum1810@snu.ac.kr>. 

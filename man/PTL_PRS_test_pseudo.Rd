@@ -9,19 +9,22 @@ PTL_PRS_test_pseudo(
   best.param,
   sum_stats_target_test,
   sum_stats,
-  ref_file
+  ref_file,
+  chunk_size = dim(best.beta)[1]
 )
 }
 \arguments{
-\item{best.beta}{A list of beta coefficient vectors, containing baseline and the best set}
+\item{best.beta}{Data.frame / matrix with SNP plus at least 5 cols}
 
-\item{best.param}{A learning rate used with the best beta}
+\item{best.param}{learning rate}
 
-\item{sum_stats_target_test}{Target summary statistics used for testing}
+\item{sum_stats_target_test}{data.frame of test summary stats}
 
-\item{sum_stats}{Reference summary statistics (used in training)}
+\item{sum_stats}{data.frame of reference summary stats}
 
-\item{ref_file}{Path to the reference genotype PLINK file}
+\item{ref_file}{prefix of PLINK .fam/.bim/.bed files}
+
+\item{chunk_size}{Optional; number of SNPs to process per iteration}
 }
 \description{
 Test performance of PTL-PRS using pseudo test summary

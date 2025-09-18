@@ -1,9 +1,3 @@
-# library(data.table)
-# library(lassosum)
-# library(Matrix)
-# library(ROCR)
-# library(parallel)
-
 #' @import data.table ROCR parallel
 #' 
 PTL_PRS_test <- function(plink_file, by_chr, ped_test_file, outfile, Ytype, Covar_name,Y_name, plink_etc=''){
@@ -81,7 +75,7 @@ PTL_PRS_test <- function(plink_file, by_chr, ped_test_file, outfile, Ytype, Cova
   gc()
 }
 
-PTL_PRS_test_list <- function(plink_file, by_chr, ped_test_file, outfile, Ytype, Covar_name,Y_name, plink_etc=''){
+PTL_PRS_test_list_old <- function(plink_file, by_chr, ped_test_file, outfile, Ytype, Covar_name,Y_name, plink_etc=''){
     #' @title Function to test performance of PTL-PRS using PLINK file
     #' @param plink_file Prefix of the PLINK file containing the test data
     #' @param by_chr If TRUE, read and compute matrix by chromosomes
@@ -92,8 +86,6 @@ PTL_PRS_test_list <- function(plink_file, by_chr, ped_test_file, outfile, Ytype,
     #' @param Y_name The name of Y in the model
     #' @param plink_etc Suffix of the PLINK file between chromosome number and file extension
     
-    #' @export
-
     ped_test = fread(ped_test_file,header=T, fill=TRUE)
     if ("ukb_idx" %in% colnames(ped_test)) {
         setnames(ped_test, old = "ukb_idx", new = "fam_idx")  # in-place, no copy
@@ -103,7 +95,9 @@ PTL_PRS_test_list <- function(plink_file, by_chr, ped_test_file, outfile, Ytype,
     best.param = fread(paste0(outfile,"_best.param.txt")) #out.beta$best.param 
 
     m = ncol(beta.list)
-    beta.list1 = beta.list[,c(1:3,9:..m)]
+    if (m < 9L) stop("beta.list needs at least 9 columns; got ", m)
+
+    beta.list1 = beta.list[,c(1:3,9:m), with=FALSE]
     k = ncol(beta.list1)
 
     if (by_chr) {
@@ -169,7 +163,7 @@ PTL_PRS_test_list <- function(plink_file, by_chr, ped_test_file, outfile, Ytype,
   gc()
 }
 
-PTL_PRS_test_list_opti <- function(plink_file, by_chr, ped_test_file, outfile, Ytype, Covar_name,Y_name, plink_etc=''){
+PTL_PRS_test_list <- function(plink_file, by_chr, ped_test_file, outfile, Ytype, Covar_name,Y_name, plink_etc=''){
     #' @title Function to test performance of PTL-PRS using PLINK file
     #' @param plink_file Prefix of the PLINK file containing the test data
     #' @param by_chr If TRUE, read and compute matrix by chromosomes
@@ -191,7 +185,9 @@ PTL_PRS_test_list_opti <- function(plink_file, by_chr, ped_test_file, outfile, Y
     # best.param = fread(paste0(outfile,"_best.param.txt")) #out.beta$best.param 
 
     m = ncol(beta.list)
-    beta.list1 = beta.list[,c(1:3,9:..m)]
+    if (m < 9L) stop("beta.list needs at least 9 columns; got ", m)
+
+    beta.list1 = beta.list[,c(1:3,9:m), with=FALSE]
     k = ncol(beta.list1)
 
     if (by_chr) {

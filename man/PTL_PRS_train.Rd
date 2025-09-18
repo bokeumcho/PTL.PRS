@@ -17,11 +17,11 @@ PTL_PRS_train(
   target_sumstats_val_file = NULL,
   ps,
   pseudo_test,
-  random_seed,
   lr_list,
   iter,
   patience,
   trace = FALSE,
+  random_seed = 42,
   random_seed_test = 70
 )
 }
@@ -50,8 +50,6 @@ PTL_PRS_train(
 
 \item{pseudo_test}{Logical; if True, pseudo-split target summary statistics into train, validation and test.}
 
-\item{random_seed}{A random seed number to split pseudo summary statistics for train and validation}
-
 \item{lr_list}{A list of learning rates}
 
 \item{iter}{A maximum number of iterations}
@@ -59,6 +57,8 @@ PTL_PRS_train(
 \item{patience}{A number of times to tolerate decrease of validation pseudo-R}
 
 \item{trace}{Logical; if TRUE, print stopped iteration}
+
+\item{random_seed}{A random seed number to split pseudo summary statistics for train and validation}
 
 \item{random_seed_test}{A random seed number to split pseudo summary statistics for test and train+validation}
 }

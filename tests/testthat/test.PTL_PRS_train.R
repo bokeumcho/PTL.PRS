@@ -76,7 +76,7 @@ test_that('Train_PTLPRS_multiSeeds', {
             target_sumstats_val_file = NULL #'Output_test_target.val.summaries'    
             )
 
-    res <- PTL_PRS_run(cfg, pseudo_test=TRUE, num_repeat_ps=3, random_seeds_repeat=seq(from=10, to=30, by=10))
+    res <- PTL_PRS_run(cfg, num_repeat_ps=3, random_seeds_repeat=seq(from=10, to=30, by=10))
     print(res$summary)
 })
 

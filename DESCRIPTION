@@ -14,7 +14,7 @@ Imports:
     data.table,
     methods,
     ROCR,
-    parallel
+    parallel,
 LinkingTo: Rcpp, RcppParallel
 SystemRequirements: GNU make
 Roxygen: list(markdown = TRUE)

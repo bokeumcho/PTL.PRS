@@ -1,4 +1,10 @@
+#' @importFrom utils modifyList
+NULL
+
 PTL_PRS_defaults <- function() {
+    #' PTL-PRS default configuration
+    #' @keywords internal
+    #' @noRd
   list(
     ref_file               = NULL,
     sum_stats_file         = NULL,
@@ -11,7 +17,7 @@ PTL_PRS_defaults <- function() {
     target_sumstats_train_file = NULL,
     target_sumstats_val_file   = NULL,
     ps                     = TRUE,
-    pseudo_test            = FALSE,     # will be overridden by run() arg
+    pseudo_test            = FALSE,    
     random_seed            = 42L,
     lr_list                = c(1,10,100,1000),
     iter                   = 100,
@@ -21,8 +27,15 @@ PTL_PRS_defaults <- function() {
   )
 }
 
+#' Build a PTL-PRS configuration list
+#'
+#' Constructs a validated configuration list for \code{PTL_PRS_train} / \code{PTL_PRS_run}.
+#' You pass only the fields you want to override; unspecified fields fall back to
+#' \code{PTL_PRS_defaults()}.
+#' @param ... Named fields to override in the defaults.
+#' @export
 PTL_PRS_config <- function(...) {
-  cfg <- modifyList(PTL_PRS_defaults(), list(...))
+  cfg <- modifyList(PTL_PRS_defaults(), list(...), keep.null=TRUE)
 
   required <- c("ref_file","sum_stats_file","target_sumstats_file",
                 "subprop","ref_file_ps","outfile")
@@ -44,19 +57,15 @@ PTL_PRS_config <- function(...) {
 #' Repeat the whole PTL-PRS pipeline across seeds (minimal args)
 #'
 #' @param cfg A list created by PTL_PRS_config(...).
-#' @param pseudo_test Logical; controls whether test split is created in each run.
-#' @param num_repeat_ps Integer; repeats when pseudo_test=TRUE and >1, else runs once.
+#' @param num_repeat_ps Integer; repeats when ps=TRUE and >1, else runs once.
 #' @param random_seeds_repeat Optional integer vector; if NULL, sampled randomly.
+#' @export
 #' @return List: results_by_seed, seeds, outfile_base, summary
 PTL_PRS_run <- function(cfg,
-                        pseudo_test       = cfg$pseudo_test,
                         num_repeat_ps     = 1L,
                         random_seeds_repeat = NULL) {
 
-  # Ensure pseudo_test in cfg reflects the caller's intent (single source of truth)
-  cfg$pseudo_test <- isTRUE(pseudo_test)
-
-  do_repeat <- isTRUE(cfg$pseudo_test) && isTRUE(cfg$ps) && num_repeat_ps > 1L
+  do_repeat <- isTRUE(cfg$ps) && num_repeat_ps > 1L
 
   # Seeds
   if (do_repeat) {
@@ -100,9 +109,7 @@ PTL_PRS_run <- function(cfg,
     # -------------- light numeric summary --------------
   summary_rows <- lapply(seq_along(results_by_seed), function(i) {
     s <- seeds[i]; res <- results_by_seed[[i]]
-    # >>> MODIFIED: best.param is a scalar numeric (not df)
     best_param <- tryCatch(as.numeric(res$best.param), error = function(e) NA_real_)  
-    # >>> MODIFIED: R2.list is a numeric vector; take max safely
     best_R2    <- tryCatch(max(as.numeric(res$R2.list), na.rm = TRUE), error = function(e) NA_real_) 
     data.frame(seed = s, best_param = best_param, best_R2 = best_R2)
   })

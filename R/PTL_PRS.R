@@ -303,6 +303,7 @@ pseudo_split <- function(target_sumstats, subprop, ref_file_ps, tempfile,
   #' @param pseudo_test Logical. If TRUE, perform a two-step (three-set) split.
   #' @param test_seed A random seed for the first split to generate test vs. rest.
   #' @param test_prop Proportion of the full sample to assign to the test set.
+  #' @export
   #' @returns If pseudo_test is FALSE, returns a list of two matrices (train and validation sets).
   #'          If TRUE, returns a named list with elements "test", "train", and "validation".
   
