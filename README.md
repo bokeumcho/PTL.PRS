@@ -32,8 +32,9 @@ for the latest development version. Or you can clone the latest development vers
 LD reference panels for multiple ancestries are available via our Zenodo upload.  
 These panels are derived from **1000 Genomes Project Phase 3** samples, lifted over to **GRCh38** coordinates, and packaged in PLINK binary format.
 
-[Access the LD reference panels on Zenodo](https://zenodo.org/records/16785891?token=eyJhbGciOiJIUzUxMiJ9.eyJpZCI6IjMxODJhMWY3LThmNGQtNGIxNC05NGJiLThlZGUxZjUyZjFjNiIsImRhdGEiOnt9LCJyYW5kb20iOiJmNDZkMTEyNDUxZWUzOTk5ZDBkNzA3ZjczMTgwN2YzMyJ9.HV-r3QLy3sGZsHgmVvUhYCiIp-b1Nz-c6Sz2kM64GYlwQRhT9RdsxGmKCvOMHM6jnFub6iTil7AwaF4k63lmEQ)
- (DOI: 10.5281/zenodo.16786034)
+Access the LD reference panels on [Zenodo](https://zenodo.org/records/16785891?token=eyJhbGciOiJIUzUxMiJ9.eyJpZCI6IjMxODJhMWY3LThmNGQtNGIxNC05NGJiLThlZGUxZjUyZjFjNiIsImRhdGEiOnt9LCJyYW5kb20iOiJmNDZkMTEyNDUxZWUzOTk5ZDBkNzA3ZjczMTgwN2YzMyJ9.HV-r3QLy3sGZsHgmVvUhYCiIp-b1Nz-c6Sz2kM64GYlwQRhT9RdsxGmKCvOMHM6jnFub6iTil7AwaF4k63lmEQ)
+ [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.16786034.svg)](https://doi.org/10.5281/zenodo.16786034)
+
 
 Each ancestry is provided as a compressed archive (`.tar.gz`) containing:
 - `*.bed` — genotype data in PLINK binary format  
@@ -171,7 +172,7 @@ Each ancestry is provided as a compressed archive (`.tar.gz`) containing:
    Pseudo summary statistics generated for test samples via `pseudo_split` function. (Only when `ps` and `pseudo_test` are both TRUE)
 
 ## Toy Example 
-You can download the example data and R scripts in Dropbox folder here (https://www.dropbox.com/scl/fo/xsm783tn8mt7h0vovhjwa/ABSam-2r6i-f3P1ED_rTRuM?rlkey=7zgkyrvnzu8rc78tnuolmmtcw&st=s5amjvco&dl=0). 
+You can download the example data and R scripts on [Zenodo](https://zenodo.org/records/17150787?token=eyJhbGciOiJIUzUxMiJ9.eyJpZCI6ImE1NGEwOWUwLTRiZjItNDc2MS05ZmFkLTY0ZjNlNjgwN2Q1YSIsImRhdGEiOnt9LCJyYW5kb20iOiJmMDc3OTk5ZDQzZjAzZGMyNGVmM2E5N2I1ZTY4MDQ4ZSJ9.ISYJFkIk2RPMsCzPFRMSAk5eE9MJSg5LW__BDDCFM9LPSKWcswGFvOX9HVtBCB1yIWdShJm0p8EtqFpuK1iGHw) [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.17150787.svg)](https://doi.org/10.5281/zenodo.17150787)
 
 ## Support
 If there are any further questions or problems with running or installing `PTL.PRS`, please do email me at <bokeum1810@snu.ac.kr>. 
